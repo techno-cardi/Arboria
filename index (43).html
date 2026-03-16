@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Syntaxe Interactive</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f1ec;--sf:#fff;--s2:#f0ede7;--bd:#ddd9d0;--b2:#c5bfb3;
+  --tx:#1a1714;--t2:#6b6560;--t3:#a09990;
+  --ac:#2563eb;--abg:#eff6ff;
+  --ph-bg:#1f2937;
+  --fn-s-bg:#dbeafe;--fn-s-b:#93c5fd;--fn-s-t:#1d4ed8;
+  --fn-p-bg:#fef3c7;--fn-p-b:#fcd34d;--fn-p-t:#b45309;
+  --fn-c-bg:#ede9fe;--fn-c-b:#c4b5fd;--fn-c-t:#7c3aed;
+  --fn-o-bg:#f0fdf4;--fn-o-b:#86efac;--fn-o-t:#166534;
+  --gn-bg:#e0f2fe;--gn-b:#7dd3fc;--gn-t:#0369a1;
+  --gv-bg:#d1fae5;--gv-b:#6ee7b7;--gv-t:#047857;
+  --gadj-bg:#ffe4e6;--gadj-b:#fca5a5;--gadj-t:#9f1239;
+  --gp-bg:#ede9fe;--gp-b:#c4b5fd;--gp-t:#6d28d9;
+  --gav-bg:#ccfbf1;--gav-b:#5eead4;--gav-t:#0f766e;
+  --go-bg:#f0fdf4;--go-b:#86efac;--go-t:#166534;
+  --cls-bg:#f9fafb;--cls-b:#9ca3af;--cls-t:#374151;
+  --mot-bg:#fff;--mot-b:#6b7280;--mot-t:#111827;
+  --sh:0 1px 4px rgba(0,0,0,.1);--sh2:0 6px 20px rgba(0,0,0,.15);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--tx);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+header{display:flex;align-items:center;gap:12px;padding:0 16px;height:50px;background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0}
+.logo{font-weight:800;font-size:1rem;letter-spacing:-.02em}.logo em{color:var(--ac);font-style:normal}
+.hsep{width:1px;height:20px;background:var(--bd)}
+.mtog{display:flex;background:var(--s2);border-radius:6px;padding:2px;gap:2px}
+.mtbtn{padding:4px 11px;border-radius:4px;border:none;background:transparent;color:var(--t2);font-family:'Syne',sans-serif;font-size:.73rem;font-weight:700;cursor:pointer;transition:all .15s}
+.mtbtn.active{background:var(--sf);color:var(--ac);box-shadow:var(--sh)}
+.hbtns{display:flex;gap:5px;margin-left:auto}
+.hbtn{display:flex;align-items:center;gap:4px;padding:5px 10px;border-radius:6px;border:1px solid var(--bd);background:var(--sf);color:var(--t2);font-family:'Syne',sans-serif;font-size:.72rem;font-weight:600;cursor:pointer;transition:all .15s}
+.hbtn:hover{border-color:var(--ac);color:var(--ac)}.hbtn.red:hover{border-color:#dc2626;color:#dc2626}
+kbd{font-family:'JetBrains Mono',monospace;font-size:.59rem;background:var(--s2);border:1px solid var(--bd);border-radius:3px;padding:1px 4px;color:var(--t3)}
+
+.app{display:flex;flex:1;overflow:hidden}
+
+/* LEFT */
+.left{width:224px;flex-shrink:0;background:var(--sf);border-right:1px solid var(--bd);display:flex;flex-direction:column;overflow-y:auto}
+.lsec{padding:11px 13px;border-bottom:1px solid var(--bd)}
+.ltitle{font-size:.58rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);margin-bottom:7px}
+#phraseInput{width:100%;padding:7px 9px;border-radius:7px;border:1.5px solid var(--bd);background:var(--bg);font-family:'JetBrains Mono',monospace;font-size:.79rem;color:var(--tx);outline:none;resize:vertical;min-height:52px}
+#phraseInput:focus{border-color:var(--ac)}
+.setbtn{margin-top:6px;width:100%;padding:6px;border-radius:6px;border:none;background:var(--ac);color:white;font-family:'Syne',sans-serif;font-weight:700;font-size:.76rem;cursor:pointer}
+.setbtn:hover{background:#1d4ed8}
+.qps{display:flex;flex-direction:column;gap:3px;margin-top:7px}
+.qp{padding:4px 8px;border-radius:5px;border:1px solid var(--bd);background:transparent;color:var(--t2);font-size:.69rem;cursor:pointer;text-align:left;transition:all .15s}
+.qp:hover{border-color:var(--ac);color:var(--ac);background:var(--abg)}
+.mlist{display:flex;flex-direction:column;gap:3px}
+.mlbtn{display:flex;align-items:center;gap:6px;padding:7px 9px;border-radius:6px;border:1px solid var(--bd);background:var(--s2);color:var(--t2);font-size:.72rem;font-weight:600;cursor:pointer;transition:all .15s;width:100%;text-align:left}
+.mlbtn:hover{border-color:var(--ac);color:var(--ac);background:var(--abg)}
+.mbadge{font-family:'JetBrains Mono',monospace;font-size:.58rem;background:var(--bd);padding:1px 5px;border-radius:3px;margin-left:auto;color:var(--t3)}
+.htxt{font-size:.69rem;color:var(--t3);line-height:1.65}.htxt strong{color:var(--t2)}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* PHRASE BAR */
+.pbar{padding:9px 16px;background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0}
+.pbar-lbl{font-size:.57rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:5px}
+.pwords{display:flex;flex-wrap:wrap;gap:3px;align-items:center;min-height:28px}
+.pw{padding:4px 8px;border-radius:5px;background:var(--s2);border:2px solid transparent;font-family:'JetBrains Mono',monospace;font-size:.88rem;cursor:grab;transition:all .1s;white-space:nowrap;user-select:none}
+.pw:hover{background:#e5e2dd;border-color:var(--b2)}.pw:active{cursor:grabbing}
+.pw.sel{background:#fef9c3;border-color:#fbbf24;color:#92400e}
+.pw.dragging-word{opacity:.35}
+.pw.c-sujet{background:var(--fn-s-bg);border-color:var(--fn-s-b);color:var(--fn-s-t)}
+.pw.c-pred{background:var(--fn-p-bg);border-color:var(--fn-p-b);color:var(--fn-p-t)}
+.pw.c-compl{background:var(--fn-c-bg);border-color:var(--fn-c-b);color:var(--fn-c-t)}
+.pw.c-gprep{background:var(--gp-bg);border-color:var(--gp-b);color:var(--gp-t)}
+/* punctuation chip – not draggable */
+.pw-punct{padding:4px 4px;border-radius:4px;background:transparent;border:none;font-family:'JetBrains Mono',monospace;font-size:.88rem;color:var(--t3);cursor:default;user-select:none}
+.pactions{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap;align-items:center}
+.pabtn{padding:3px 9px;border-radius:5px;border:1.5px solid var(--bd);background:transparent;color:var(--t2);font-size:.7rem;font-weight:600;cursor:pointer;transition:all .12s}
+.pabtn:hover{background:var(--s2)}
+.colsel{padding:3px 7px;border-radius:5px;border:1.5px solid var(--bd);background:var(--bg);font-family:'Syne',sans-serif;font-size:.7rem;color:var(--tx);outline:none}
+.selinfo{font-size:.7rem;color:var(--t2);padding:3px 8px;background:#fef9c3;border:1px solid #fbbf24;border-radius:5px;display:none;align-items:center;gap:5px}
+.selinfo.on{display:flex}.selinfo strong{color:var(--tx);font-family:'JetBrains Mono',monospace}
+
+/* TABS */
+.tabs{display:flex;padding:0 16px;background:var(--s2);border-bottom:1px solid var(--bd);flex-shrink:0}
+.tab{padding:8px 13px;border-bottom:2px solid transparent;color:var(--t3);font-size:.73rem;font-weight:700;cursor:pointer;transition:all .15s;background:none;border-top:none;border-left:none;border-right:none}
+.tab.active{color:var(--ac);border-bottom-color:var(--ac)}.tab:hover:not(.active){color:var(--t2)}
+
+/* CANVAS */
+.carea{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.tcontent{display:none;flex:1;overflow:hidden;flex-direction:column}
+.tcontent.active{display:flex}
+
+/* TREE */
+#tree-outer{flex:1;overflow:auto;position:relative;background:var(--bg)}
+#tree-canvas{position:relative;min-width:900px;min-height:600px}
+#tree-svg{position:absolute;top:0;left:0;pointer-events:none;overflow:visible}
+
+/* ── NODE ── */
+.tnode{
+  position:absolute;transform:translate(-50%,-50%);
+  border-radius:10px;padding:6px 14px;
+  font-size:.78rem;font-weight:700;font-family:'Syne',sans-serif;
+  cursor:pointer;box-shadow:var(--sh);
+  display:flex;flex-direction:column;align-items:center;gap:1px;
+  border:2px solid transparent;min-width:62px;text-align:center;
+  transition:box-shadow .12s;
+}
+.tnode:hover{box-shadow:var(--sh2)}
+.tnode.drag-over{outline:3px dashed var(--ac);outline-offset:3px}
+
+/* kinds */
+.nk-p{background:var(--ph-bg);color:#fff;border-color:#374151}
+.nk-fg.fn-s{background:var(--fn-s-bg);color:var(--fn-s-t);border-color:var(--fn-s-b)}
+.nk-fg.fn-p{background:var(--fn-p-bg);color:var(--fn-p-t);border-color:var(--fn-p-b)}
+.nk-fg.fn-c{background:var(--fn-c-bg);color:var(--fn-c-t);border-color:var(--fn-c-b)}
+.nk-fg.fn-o{background:var(--fn-o-bg);color:var(--fn-o-t);border-color:var(--fn-o-b)}
+/* groupe standalone (sub-groupe) */
+.nk-g.gk-gn{background:var(--gn-bg);color:var(--gn-t);border-color:var(--gn-b)}
+.nk-g.gk-gv{background:var(--gv-bg);color:var(--gv-t);border-color:var(--gv-b)}
+.nk-g.gk-gadj{background:var(--gadj-bg);color:var(--gadj-t);border-color:var(--gadj-b)}
+.nk-g.gk-gprep{background:var(--gp-bg);color:var(--gp-t);border-color:var(--gp-b)}
+.nk-g.gk-gadv{background:var(--gav-bg);color:var(--gav-t);border-color:var(--gav-b)}
+.nk-g.gk-go{background:var(--go-bg);color:var(--go-t);border-color:var(--go-b)}
+/* classe */
+.nk-c{background:var(--cls-bg);color:var(--cls-t);border-color:var(--cls-b)}
+/* mot */
+.nk-m{background:var(--mot-bg);color:var(--mot-t);border-color:var(--mot-b);font-family:'JetBrains Mono',monospace;font-size:.84rem}
+
+/* text inside nodes */
+.node-fn{font-size:.7rem;font-weight:800;letter-spacing:.04em;line-height:1;margin-bottom:1px}
+.node-grp{font-size:.82rem;line-height:1.2}
+.node-sub{font-size:.55rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;opacity:.5;line-height:1}
+.node-main{font-size:.82rem;line-height:1.2}
+
+/* add / del */
+.nplus{position:absolute;bottom:-13px;left:50%;transform:translateX(-50%);width:18px;height:18px;border-radius:50%;background:var(--ac);color:white;border:2px solid white;font-size:11px;line-height:1;cursor:pointer;display:none;align-items:center;justify-content:center;z-index:20;box-shadow:var(--sh)}
+.tnode:hover .nplus{display:flex}.nplus:hover{transform:translateX(-50%) scale(1.15)}
+/* no + on mot nodes */
+.nk-m .nplus{display:none!important}
+.ndel{position:absolute;top:-7px;right:-7px;width:16px;height:16px;border-radius:50%;background:#ef4444;color:white;border:2px solid white;font-size:9px;cursor:pointer;display:none;align-items:center;justify-content:center;z-index:20}
+.tnode:hover .ndel{display:flex}.nk-p .ndel{display:none!important}
+
+/* PHRASE BOTTOM */
+#phrase-bottom{background:var(--sf);border-top:1px solid var(--bd);padding:7px 16px;font-family:'JetBrains Mono',monospace;font-size:.84rem;display:flex;flex-wrap:wrap;gap:2px 5px;align-items:baseline;flex-shrink:0;min-height:32px}
+.pb-word{color:var(--tx)}.pb-punct{color:var(--t3)}.pb-empty{color:var(--t3);font-style:italic;font-family:'Syne',sans-serif;font-size:.76rem}
+
+/* CTX MENU */
+.ctx{position:fixed;background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:5px;z-index:1000;box-shadow:var(--sh2);min-width:188px;display:none;max-height:340px;overflow-y:auto}
+.ctx.open{display:block;animation:ctxin .1s ease}
+@keyframes ctxin{from{opacity:0;transform:scale(.93)}to{opacity:1;transform:scale(1)}}
+.ctx-title{padding:4px 9px 3px;font-size:.58rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);border-bottom:1px solid var(--bd);margin-bottom:3px}
+.ctx-item{display:flex;align-items:center;gap:7px;padding:6px 9px;border-radius:6px;cursor:pointer;font-size:.79rem;transition:background .1s;color:var(--t2)}
+.ctx-item:hover{background:var(--s2);color:var(--tx)}
+.ctx-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;border:1.5px solid #ccc}
+.ctx-sep{height:1px;background:var(--bd);margin:3px 0}
+
+/* DRAG GHOST */
+#drag-ghost{position:fixed;pointer-events:none;z-index:2000;background:var(--ph-bg);color:white;padding:3px 9px;border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:.83rem;box-shadow:var(--sh2);display:none;white-space:nowrap}
+
+/* SCROLL CONTENT (manip/classes) */
+.scroll-content{flex:1;overflow-y:auto;padding:16px}
+.mzone{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:13px 17px;margin-bottom:10px}
+.mzone h3{font-size:.83rem;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.mzone p{font-size:.77rem;color:var(--t2);margin-bottom:8px}
+.mr{font-family:'JetBrains Mono',monospace;font-size:.87rem;line-height:1.9;padding:9px 13px;background:var(--s2);border-radius:6px;margin-top:7px;min-height:38px}
+.m-hi{background:#fef9c3;border-bottom:2px solid #fbbf24;padding:0 2px}
+.m-cross{text-decoration:line-through;color:var(--t3)}
+.m-ins{background:#dcfce7;border-bottom:2px solid #16a34a;padding:0 2px;color:#14532d}
+.mrow{display:flex;gap:5px;margin-top:7px;flex-wrap:wrap}
+.mi{flex:1;min-width:90px;padding:6px 9px;border-radius:6px;border:1.5px solid var(--bd);background:var(--bg);font-family:'JetBrains Mono',monospace;font-size:.79rem;color:var(--tx);outline:none}
+.mi:focus{border-color:var(--ac)}
+.mibtn{padding:6px 11px;border-radius:6px;border:none;background:var(--ac);color:white;font-family:'Syne',sans-serif;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap}
+.mibtn:hover{background:#1d4ed8}
+.mibtn.sec{background:var(--s2);color:var(--t2);border:1.5px solid var(--bd)}
+.mibtn.sec:hover{border-color:var(--ac);color:var(--ac);background:var(--abg)}
+.pronchips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.pronchip{padding:2px 8px;border-radius:14px;border:1px solid var(--bd);background:var(--s2);font-family:'JetBrains Mono',monospace;font-size:.76rem;cursor:pointer;transition:all .1s}
+.pronchip:hover{border-color:var(--ac);color:var(--ac);background:var(--abg)}
+.ctable{width:100%;border-collapse:collapse}
+.ctable th{padding:7px 11px;text-align:left;font-size:.59rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);border-bottom:2px solid var(--bd);background:var(--s2)}
+.ctable td{padding:7px 11px;border-bottom:1px solid var(--bd);font-family:'JetBrains Mono',monospace;font-size:.8rem;vertical-align:middle}
+.ctable tr:hover td{background:var(--s2)}
+.csel{padding:3px 7px;border-radius:5px;border:1.5px solid var(--bd);background:var(--bg);font-family:'Syne',sans-serif;font-size:.7rem;font-weight:600;cursor:pointer;outline:none;color:var(--tx)}
+.cbadge{display:inline-block;padding:2px 6px;border-radius:4px;font-family:'Syne',sans-serif;font-size:.65rem;font-weight:700}
+.cbN{background:#dbeafe;color:#1e40af}.cbV{background:#fef3c7;color:#92400e}.cbDet{background:#d1fae5;color:#065f46}
+.cbAdj{background:#ffe4e6;color:#9f1239}.cbPrep{background:#ede9fe;color:#5b21b6}.cbAdv{background:#fef9c3;color:#713f12}
+.cbPron{background:#fce7f3;color:#831843}.cbConj{background:#e0f2fe;color:#0c4a6e}.cbPronRel{background:#fdf4ff;color:#701a75}
+.cbSub{background:#fff7ed;color:#7c2d12}.cb_{background:var(--s2);color:var(--t3)}
+
+.hbar{padding:5px 16px;background:var(--sf);border-top:1px solid var(--bd);display:flex;align-items:center;gap:7px;font-size:.69rem;color:var(--t3);flex-shrink:0}
+.hbar span{flex:1}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
+@keyframes popIn{from{opacity:0;transform:translate(-50%,-50%) scale(.8)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+.tnode.new{animation:popIn .16s cubic-bezier(.34,1.56,.64,1) forwards}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Syntaxe <em>Interactive</em></div>
+  <div class="hsep"></div>
+  <div class="mtog">
+    <button class="mtbtn active" onclick="setMode('primaire',this)">Primaire</button>
+    <button class="mtbtn" onclick="setMode('secondaire',this)">Secondaire</button>
+  </div>
+  <div class="hbtns">
+    <button class="hbtn" onclick="undo()">↩ Annuler <kbd>Ctrl+Z</kbd></button>
+    <button class="hbtn" onclick="clearSel()">✕ Désélect.</button>
+    <button class="hbtn red" onclick="resetAll()">🗑 Effacer</button>
+  </div>
+</header>
+
+<div class="app">
+  <aside class="left">
+    <div class="lsec">
+      <div class="ltitle">Phrase</div>
+      <textarea id="phraseInput" rows="3" placeholder="Tapez votre phrase…">Les élèves de la classe analysent une phrase ce matin.</textarea>
+      <button class="setbtn" onclick="setPhrase()">Confirmer →</button>
+      <div class="qps" style="margin-top:8px">
+        <div class="ltitle">Exemples</div>
+        <button class="qp" onclick="loadQP(this)">Le chat dort.</button>
+        <button class="qp" onclick="loadQP(this)">Ce joueur de hockey est performant.</button>
+        <button class="qp" onclick="loadQP(this)">Les élèves de la classe analysent une phrase ce matin.</button>
+        <button class="qp" onclick="loadQP(this)">Ma sœur mange une pomme chaque jour.</button>
+      </div>
+    </div>
+    <div class="lsec">
+      <div class="ltitle">Manipulations</div>
+      <div class="mlist">
+        <button class="mlbtn" onclick="goManip('encadrement')">🔲 Encadrement <span class="mbadge">sélect.</span></button>
+        <button class="mlbtn" onclick="goManip('deplacement')">↔️ Déplacement <span class="mbadge">sélect.</span></button>
+        <button class="mlbtn" onclick="goManip('effacement')">✂️ Effacement <span class="mbadge">sélect.</span></button>
+        <button class="mlbtn" onclick="goManip('ajout')">➕ Ajout</button>
+        <button class="mlbtn" onclick="goManip('remplacement')">🔄 Remplacement <span class="mbadge">sélect.</span></button>
+        <button class="mlbtn" onclick="goManip('pronominalisation')">🔁 Pronominalisation <span class="mbadge">sélect.</span></button>
+        <button class="mlbtn sec-only" onclick="goManip('coordination')" style="display:none">⚡ Coord./Juxtap.</button>
+      </div>
+    </div>
+    <div class="lsec">
+      <div class="ltitle">Aide</div>
+      <div class="htxt">
+        <strong>Cliquez sur P</strong> → ajouter Sujet / Prédicat / Compl. de P.<br><br>
+        <strong>Cliquez un nœud</strong> → ouvrir son menu.<br><br>
+        <strong>Glissez un mot</strong> de la phrase vers une bulle.<br><br>
+        <strong>Double-clic</strong> sur nœud → réinitialiser position.<br><br>
+        La phrase est reconstituée en bas en temps réel.
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="pbar">
+      <div class="pbar-lbl">Phrase — cliquez pour sélectionner · glissez un mot vers une bulle</div>
+      <div class="pwords" id="pwords"><span style="color:var(--t3);font-size:.77rem">Confirmez une phrase pour commencer.</span></div>
+      <div class="pactions">
+        <button class="pabtn" onclick="colorSel()">🎨 Colorier</button>
+        <select class="colsel" id="colorTarget">
+          <option value="sujet">Sujet (bleu)</option>
+          <option value="pred">Prédicat (jaune)</option>
+          <option value="compl">Compl. de P (violet)</option>
+          <option value="gprep">GPrép (vert)</option>
+        </select>
+        <button class="pabtn" onclick="clearColors()">✕ Couleurs</button>
+        <button class="pabtn" onclick="clearSel()">✕ Sélection</button>
+        <div class="selinfo" id="selinfo">Sélection : <strong id="seltext">—</strong>&nbsp;·&nbsp;<span id="selcount">0</span></div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" id="tab-arbre" onclick="switchTab('arbre')">🌳 Arbre</button>
+      <button class="tab" id="tab-manip" onclick="switchTab('manip')">⚙️ Manipulations</button>
+      <button class="tab" id="tab-classes" onclick="switchTab('classes')">🏷️ Classes</button>
+    </div>
+
+    <div class="carea">
+      <!-- ARBRE -->
+      <div class="tcontent active" id="content-arbre">
+        <div id="tree-outer">
+          <div id="tree-canvas">
+            <svg id="tree-svg"></svg>
+          </div>
+        </div>
+        <div id="phrase-bottom"><span class="pb-empty">La phrase reconstituée apparaîtra ici.</span></div>
+      </div>
+
+      <!-- MANIP -->
+      <div class="tcontent" id="content-manip">
+        <div class="scroll-content">
+          <div class="mzone" id="mz-encadrement">
+            <h3>🔲 Encadrement</h3><p>Sélectionnez des mots puis appliquez.</p>
+            <div class="mrow">
+              <button class="mibtn sec" onclick="applyEnc('cq')">C'est … qui</button>
+              <button class="mibtn sec" onclick="applyEnc('csq')">Ce sont … qui</button>
+              <button class="mibtn sec" onclick="applyEnc('np')">Ne … pas</button>
+            </div>
+            <div class="mr" id="mr-encadrement"><span style="color:var(--t3)">Sélectionnez des mots.</span></div>
+          </div>
+          <div class="mzone" id="mz-deplacement">
+            <h3>↔️ Déplacement</h3><p>Sélectionnez des mots et déplacez-les.</p>
+            <div class="mrow">
+              <button class="mibtn sec" onclick="applyDep('d')">→ Début</button>
+              <button class="mibtn sec" onclick="applyDep('f')">→ Fin</button>
+            </div>
+            <div class="mr" id="mr-deplacement"><span style="color:var(--t3)">Sélectionnez des mots.</span></div>
+          </div>
+          <div class="mzone" id="mz-effacement">
+            <h3>✂️ Effacement</h3><p>Sélectionnez puis effacez.</p>
+            <div class="mrow"><button class="mibtn sec" onclick="applyEff()">Effacer</button></div>
+            <div class="mr" id="mr-effacement"><span style="color:var(--t3)">Sélectionnez des mots.</span></div>
+          </div>
+          <div class="mzone" id="mz-ajout">
+            <h3>➕ Ajout</h3><p>Ajoutez un mot avant ou après la sélection.</p>
+            <div class="mrow">
+              <input class="mi" id="ajout-word" placeholder="Mot à ajouter…">
+              <button class="mibtn sec" onclick="applyAjout('av')">Avant</button>
+              <button class="mibtn sec" onclick="applyAjout('ap')">Après</button>
+            </div>
+            <div class="mr" id="mr-ajout"><span style="color:var(--t3)">Entrez un mot.</span></div>
+          </div>
+          <div class="mzone" id="mz-remplacement">
+            <h3>🔄 Remplacement</h3><p>Sélectionnez des mots et remplacez-les.</p>
+            <div class="mrow">
+              <input class="mi" id="repl-word" placeholder="Remplacer par…">
+              <button class="mibtn" onclick="applyRepl()">Remplacer</button>
+            </div>
+            <div class="mr" id="mr-remplacement"><span style="color:var(--t3)">Sélectionnez des mots.</span></div>
+          </div>
+          <div class="mzone" id="mz-pronominalisation">
+            <h3>🔁 Pronominalisation</h3><p>Sélectionnez des mots et pronominalisez.</p>
+            <div class="pronchips">
+              <span class="pronchip" onclick="applyPron('il')">il</span><span class="pronchip" onclick="applyPron('elle')">elle</span>
+              <span class="pronchip" onclick="applyPron('ils')">ils</span><span class="pronchip" onclick="applyPron('elles')">elles</span>
+              <span class="pronchip" onclick="applyPron('le')">le</span><span class="pronchip" onclick="applyPron('la')">la</span>
+              <span class="pronchip" onclick="applyPron('les')">les</span><span class="pronchip" onclick="applyPron('lui')">lui</span>
+              <span class="pronchip" onclick="applyPron('leur')">leur</span><span class="pronchip" onclick="applyPron('nous')">nous</span>
+              <span class="pronchip" onclick="applyPron('vous')">vous</span><span class="pronchip" onclick="applyPron('cela')">cela</span>
+              <span class="pronchip" onclick="applyPron('y')">y</span><span class="pronchip" onclick="applyPron('en')">en</span>
+              <span class="pronchip" onclick="applyPron('on')">on</span>
+            </div>
+            <div class="mr" id="mr-pronominalisation"><span style="color:var(--t3)">Sélectionnez des mots.</span></div>
+          </div>
+          <div class="mzone sec-only" id="mz-coordination" style="display:none">
+            <h3>⚡ Coordonnant / Juxtaposant</h3>
+            <div class="mrow">
+              <input class="mi" id="coord-word" placeholder="ex : et, mais…">
+              <button class="mibtn sec" onclick="markCoord('coordonnant')">Coord.</button>
+              <button class="mibtn sec" onclick="markCoord('juxtaposant')">Juxtap.</button>
+            </div>
+            <div class="mr" id="mr-coordination"><span style="color:var(--t3)">Entrez le mot.</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CLASSES -->
+      <div class="tcontent" id="content-classes">
+        <div class="scroll-content">
+          <div id="classes-content"><div style="color:var(--t3);font-size:.77rem">Confirmez une phrase.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hbar">
+      <span id="hlabel">Cliquez sur P pour commencer.</span>
+      <button class="hbtn" style="padding:3px 8px;font-size:.67rem" onclick="undo()">↩ Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div class="ctx" id="ctx"></div>
+<div id="drag-ghost"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  TREE DATA
+// ═══════════════════════════════════════════════
+/*
+  Node kinds:
+    'p'   – root P
+    'fg'  – fonction+groupe merged: label=fonction, grp=groupe name, fnCls=css fn class, grpCls=css grp class
+    'g'   – standalone group (sub-group inside a group)
+    'c'   – classe de mot (under fg or g, has children=mots)
+    'm'   – mot (leaf)
+*/
+
+const LY = [70, 158, 248, 338, 420]; // Y per depth level (tight)
+const GX = 108; // horizontal slot width
+
+// Which groups are valid for each main function
+const GRP4FN = {
+  'Sujet':      ['GN','GVinf.','Pron.','Sub. Compl.'],
+  'Prédicat':   ['GV','GAdj','GN','GPrép'],
+  'Compl. de P':['GN','GAdv','GPrép','GVinf.','GAdj'],
+};
+// Which classes are valid for each group
+const CLS4GRP = {
+  'GN':    ['Dét.','N','Adj.','Pron.'],
+  'GV':    ['V','Adv.','N','Dét.'],
+  'GAdj':  ['Adj.','Adv.'],
+  'GPrép': ['Prép.','Dét.','N','Adj.'],
+  'GAdv':  ['Adv.','Prép.'],
+  'GVinf.':['V','N','Dét.','Adv.'],
+  'Pron.': ['Pron.'],
+  'default':['Dét.','N','V','Adj.','Pron.','Adv.','Prép.','Conj.'],
+};
+// Sub-groups embeddable in a group (creates a new fg node inside)
+const SUBGRP4GRP = {
+  'GN':    ['GPrép','GAdj','Sub. rel.','GAdv'],
+  'GV':    ['GN','GPrép','GAdj','GAdv','GVinf.','Sub. Compl.'],
+  'GPrép': ['GN','GAdj','GAdv'],
+  'GAdj':  ['GAdv','GPrép'],
+  'default':['GN','GV','GPrép','GAdj','GAdv'],
+};
+// Default sub-function label for a sub-group inside a group
+const SUBFN4 = {
+  'GN:GPrép':'Compl. du N','GN:GAdj':'Modificateur','GN:Sub. rel.':'Compl. du N','GN:GAdv':'Modificateur',
+  'GV:GN':'CD','GV:GPrép':'CI','GV:GAdj':'Att. du Compl.','GV:GAdv':'Modificateur','GV:GVinf.':'CD',
+  'GPrép:GN':'Compl. Prép.','GPrép:GAdj':'Modificateur',
+  'GAdj:GAdv':'Modificateur','GAdj:GPrép':'Compl. Adj',
+};
+
+// Styling
+const FN_CLS = {
+  'Sujet':'fn-s','Prédicat':'fn-p','Compl. de P':'fn-c','default':'fn-o',
+};
+const GRP_CLS = {
+  'GN':'gk-gn','GV':'gk-gv','GAdj':'gk-gadj','GPrép':'gk-gprep','GAdv':'gk-gadv','default':'gk-go',
+};
+const GRP_COLORS = {
+  'GN':{bg:'var(--gn-bg)',b:'var(--gn-b)'},'GV':{bg:'var(--gv-bg)',b:'var(--gv-b)'},
+  'GAdj':{bg:'var(--gadj-bg)',b:'var(--gadj-b)'},'GPrép':{bg:'var(--gp-bg)',b:'var(--gp-b)'},
+  'GAdv':{bg:'var(--gav-bg)',b:'var(--gav-b)'},'default':{bg:'var(--go-bg)',b:'var(--go-b)'},
+};
+const FN_COLORS = {
+  'Sujet':{bg:'var(--fn-s-bg)',b:'var(--fn-s-b)'},'Prédicat':{bg:'var(--fn-p-bg)',b:'var(--fn-p-b)'},
+  'Compl. de P':{bg:'var(--fn-c-bg)',b:'var(--fn-c-b)'},'default':{bg:'var(--fn-o-bg)',b:'var(--fn-o-b)'},
+};
+const ALL_CLASSES = ['Dét.','N','V','Adj.','Pron.','Adv.','Prép.','Conj.','Pron. rel.','Sub.'];
+const CLS_CB = {'Dét.':'Det','N':'N','V':'V','Adj.':'Adj','Pron.':'Pron','Adv.':'Adv','Prép.':'Prep','Conj.':'Conj','Pron. rel.':'PronRel','Sub.':'Sub','?':'_'};
+
+// ═══════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════
+const S = {
+  phrase:'', words:[], punct:'', selected:new Set(),
+  nodes:{}, rootId:'root', nid:0,
+  mode:'primaire', history:[],
+  dragWordIdx:null,
+};
+
+// ═══════════════════════════════════════════════
+//  NODE HELPERS
+// ═══════════════════════════════════════════════
+function mkId(){ return 'n'+(++S.nid); }
+
+function mkNode(kind, opts, parentId, depth){
+  const id = mkId();
+  S.nodes[id] = { id, kind, ...opts, parentId, children:[], depth, x:0, y:0, mp:false };
+  if(parentId && S.nodes[parentId]) S.nodes[parentId].children.push(id);
+  return id;
+}
+
+function delRec(id){
+  if(!S.nodes[id]) return;
+  [...S.nodes[id].children].forEach(c=>delRec(c));
+  const p=S.nodes[id].parentId;
+  if(p&&S.nodes[p]) S.nodes[p].children=S.nodes[p].children.filter(c=>c!==id);
+  delete S.nodes[id];
+}
+
+// ═══════════════════════════════════════════════
+//  LAYOUT
+// ═══════════════════════════════════════════════
+function subW(id){ const n=S.nodes[id]; if(!n) return 1; if(!n.children.length) return 1; return n.children.reduce((s,c)=>s+subW(c),0); }
+
+function layoutNode(id, left){
+  const n=S.nodes[id]; if(!n) return;
+  const w=subW(id);
+  if(!n.mp){ n.x=(left+w/2)*GX+70; n.y=LY[Math.min(n.depth,LY.length-1)]; }
+  let cur=left; n.children.forEach(c=>{ layoutNode(c,cur); cur+=subW(c); });
+}
+
+function doLayout(){
+  layoutNode(S.rootId,0);
+  // center root over children
+  const root=S.nodes[S.rootId];
+  if(root&&!root.mp&&root.children.length){
+    const xs=root.children.map(c=>S.nodes[c]?.x||0).filter(Boolean);
+    if(xs.length) root.x=xs.reduce((a,b)=>a+b,0)/xs.length;
+  }
+  const allN=Object.values(S.nodes);
+  const maxX=Math.max(...allN.map(n=>n.x),600)+180;
+  const maxY=Math.max(...allN.map(n=>n.y),350)+130;
+  const tc=document.getElementById('tree-canvas');
+  tc.style.width=maxX+'px'; tc.style.height=maxY+'px';
+  const svg=document.getElementById('tree-svg');
+  svg.setAttribute('width',maxX); svg.setAttribute('height',maxY);
+  svg.style.width=maxX+'px'; svg.style.height=maxY+'px';
+}
+
+// ═══════════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════════
+function renderTree(animId){
+  doLayout();
+  document.querySelectorAll('.tnode').forEach(e=>e.remove());
+  Object.values(S.nodes).forEach(n=>renderNode(n,animId));
+  renderEdges();
+  renderPhraseBottom();
+}
+
+function renderNode(n, animId){
+  const tc=document.getElementById('tree-canvas');
+  const el=document.createElement('div');
+
+  let kindCls='';
+  if(n.kind==='p') kindCls='nk-p';
+  else if(n.kind==='fg') kindCls='nk-fg '+(FN_CLS[n.fn]||FN_CLS['default']);
+  else if(n.kind==='g')  kindCls='nk-g '+(GRP_CLS[n.grp]||GRP_CLS['default']);
+  else if(n.kind==='c')  kindCls='nk-c';
+  else if(n.kind==='m')  kindCls='nk-m';
+
+  let cls='tnode '+kindCls;
+  if(animId&&animId===n.id) cls+=' new';
+  el.className=cls; el.id='nd-'+n.id;
+  el.style.left=n.x+'px'; el.style.top=n.y+'px';
+
+  // Inner
+  let inner='';
+  if(n.kind==='p'){
+    inner='<span class="node-sub">Phrase</span><span class="node-main">P</span>';
+  } else if(n.kind==='fg'){
+    // fonction+groupe in one bubble: Sujet (bold top) + GN (smaller bottom)
+    inner=`<span class="node-fn">${n.fn}</span><span class="node-grp">${n.grp}</span>`;
+  } else if(n.kind==='g'){
+    inner=`<span class="node-main">${n.grp}</span>`;
+  } else if(n.kind==='c'){
+    inner=`<span class="node-sub">classe</span><span class="node-main">${n.cls}</span>`;
+  } else if(n.kind==='m'){
+    inner=`<span class="node-main">${n.mot}</span>`;
+  }
+
+  // del (not P)
+  if(n.kind!=='p') inner+=`<button class="ndel" onclick="event.stopPropagation();snap('del');delRec('${n.id}');renderTree();setHL('Supprimé.')">×</button>`;
+  // add (not mot)
+  if(n.kind!=='m') inner+=`<button class="nplus" onclick="event.stopPropagation();openAdd(event,'${n.id}')">+</button>`;
+
+  el.innerHTML=inner;
+  el.addEventListener('click',e=>{ e.stopPropagation(); openMenu(e,n.id); });
+  makeDrag(el,n);
+
+  // Drop target
+  el.addEventListener('dragover',e=>{ e.preventDefault(); el.classList.add('drag-over'); });
+  el.addEventListener('dragleave',()=>el.classList.remove('drag-over'));
+  el.addEventListener('drop',e=>{ e.preventDefault(); el.classList.remove('drag-over'); dropWord(n.id); });
+  el.addEventListener('dblclick',e=>{ if(e.target.classList.contains('ndel')||e.target.classList.contains('nplus')) return; n.mp=false; renderTree(); setHL('Position réinitialisée.'); });
+
+  tc.appendChild(el);
+}
+
+function renderEdges(){
+  const svg=document.getElementById('tree-svg');
+  svg.innerHTML='';
+  Object.values(S.nodes).forEach(n=>{
+    if(!n.parentId) return;
+    const p=S.nodes[n.parentId]; if(!p) return;
+    const x1=p.x, y1=p.y+22, x2=n.x, y2=n.y-22;
+    if(n.kind==='m'){
+      const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+      line.setAttribute('x1',x1);line.setAttribute('y1',y1);line.setAttribute('x2',x2);line.setAttribute('y2',y2);
+      line.setAttribute('stroke','#c5bfb3');line.setAttribute('stroke-width','1.5');
+      svg.appendChild(line);
+    } else {
+      const my=(y1+y2)/2;
+      const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+      path.setAttribute('d',`M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}`);
+      path.setAttribute('stroke','#c5bfb3');path.setAttribute('stroke-width','1.8');path.setAttribute('fill','none');
+      svg.appendChild(path);
+    }
+    const dot=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    dot.setAttribute('cx',x1);dot.setAttribute('cy',y1);dot.setAttribute('r','3');dot.setAttribute('fill','#c5bfb3');
+    svg.appendChild(dot);
+  });
+}
+
+function renderPhraseBottom(){
+  const mots=Object.values(S.nodes).filter(n=>n.kind==='m').sort((a,b)=>a.x-b.x);
+  const pb=document.getElementById('phrase-bottom');
+  if(!mots.length){ pb.innerHTML='<span class="pb-empty">La phrase reconstituée apparaîtra ici.</span>'; return; }
+  let html=mots.map(m=>`<span class="pb-word">${m.mot}</span>`).join('');
+  if(S.punct) html+=`<span class="pb-punct">${S.punct}</span>`;
+  pb.innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════
+//  DRAG NODE
+// ═══════════════════════════════════════════════
+function makeDrag(el,node){
+  let ox,oy,sx,sy,moved;
+  el.addEventListener('mousedown',e=>{
+    if(e.target.classList.contains('ndel')||e.target.classList.contains('nplus')) return;
+    e.preventDefault(); moved=false; ox=node.x; oy=node.y; sx=e.clientX; sy=e.clientY;
+    const onM=ev=>{
+      moved=true;
+      node.x=Math.max(35,ox+ev.clientX-sx); node.y=Math.max(25,oy+ev.clientY-sy);
+      node.mp=true; el.style.left=node.x+'px'; el.style.top=node.y+'px';
+      renderEdges();
+      const allN=Object.values(S.nodes);
+      const mx=Math.max(...allN.map(n=>n.x),600)+180;
+      const my=Math.max(...allN.map(n=>n.y),350)+130;
+      const tc=document.getElementById('tree-canvas');
+      tc.style.width=mx+'px'; tc.style.height=my+'px';
+      document.getElementById('tree-svg').setAttribute('width',mx);
+      document.getElementById('tree-svg').setAttribute('height',my);
+    };
+    const onU=()=>{ document.removeEventListener('mousemove',onM); document.removeEventListener('mouseup',onU); };
+    document.addEventListener('mousemove',onM); document.addEventListener('mouseup',onU);
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  WORD DROP
+// ═══════════════════════════════════════════════
+function dropWord(nodeId){
+  const n=S.nodes[nodeId]; if(!n) return;
+  let txt='';
+  let wordArr=[];
+  if(S.dragWordIdx!==null){
+    txt=S.words[S.dragWordIdx]?.text||'';
+    wordArr=[txt];
+    S.dragWordIdx=null;
+  } else if(S.selected.size){
+    const idxs=[...S.selected].sort((a,b)=>a-b);
+    wordArr=idxs.map(i=>S.words[i]?.text).filter(Boolean);
+    txt=wordArr.join(' ');
+  }
+  if(!txt) return;
+
+  if(n.kind==='fg'||n.kind==='g'){
+    // Always offer: add as sub-group OR add as class+mot
+    showDropChoiceMenu(n, txt, wordArr);
+    return;
+  }
+  snap('drop');
+  if(n.kind==='c'){
+    mkNode('m',{mot:txt},n.id,n.depth+1);
+    renderTree(); setHL('Mot ajouté.'); clearSel(); return;
+  }
+  if(n.kind==='m'){ n.mot=txt; renderTree(); setHL('Mot remplacé.'); clearSel(); return; }
+  if(n.kind==='p'){ openMenu(null, nodeId); return; }
+  clearSel();
+}
+
+// First choice after dropping word(s) on a group: sub-group or class
+function showDropChoiceMenu(n, txt, wordArr){
+  const parentGrp=n.kind==='fg'?n.grp:(n.grp||'');
+  const subGrps=(SUBGRP4GRP[parentGrp]||SUBGRP4GRP['default']).filter(g=>!secOnly(g)||S.mode==='secondaire');
+  const validCls=(CLS4GRP[parentGrp]||CLS4GRP['default']).filter(c=>!secOnly(c)||S.mode==='secondaire');
+  // Use screen coords relative to tree-outer for positioning
+  const outerEl=document.getElementById('tree-outer');
+  const rect=outerEl.getBoundingClientRect();
+  const cx=Math.min(rect.left+n.x-outerEl.scrollLeft+20, window.innerWidth-220);
+  const cy=Math.min(rect.top+n.y-outerEl.scrollTop+30, window.innerHeight-300);
+
+  const isMulti=wordArr.length>1;
+  const label=isMulti?'📦 Groupe contenant ces mots':'📦 Groupe';
+
+  const grpItems=subGrps.map(g=>{
+    const col=GRP_COLORS[g]||GRP_COLORS['default'];
+    return mkItemColor(label+' : '+g, col.bg, col.b, ()=>{
+      showSubFnForDrop(n, g, txt, wordArr, cx, cy);
+    });
+  });
+
+  // Class items only make sense for a single word
+  const clsItems=(!isMulti)?validCls.map(c=>mkItemColor('🏷️ Classe : '+c,'var(--cls-bg)','var(--cls-b)',()=>{
+    snap('add');
+    const cid=mkNode('c',{cls:c},n.id,n.depth+1);
+    mkNode('m',{mot:txt},cid,n.depth+2);
+    renderTree(cid); setHL('"'+txt+'" ajouté sous '+c+'.'); clearSel();
+  })):[];
+
+  const allItems=isMulti?grpItems:[...grpItems, null, ...clsItems];
+  buildCtxAt('Ajouter dans '+parentGrp, allItems, cx, cy);
+}
+
+// Ask function label for the sub-group being added from a drop
+function showSubFnForDrop(parentNode, grpLabel, wordsTxt, wordArr, cx, cy){
+  const parentGrp=parentNode.kind==='fg'?parentNode.grp:(parentNode.grp||'');
+  const defaultFn=SUBFN4[parentGrp+':'+grpLabel]||'Compl.';
+  const allFns=[defaultFn,'CD','CI','Compl. du N','Modificateur','Compl. de la Prép.','Att. du Compl.','Compl. Circ.','Compl. du Sujet'].filter((v,i,a)=>a.indexOf(v)===i);
+  const items=allFns.map(fn=>mkItemColor(fn,'var(--fn-o-bg)','var(--fn-o-b)',()=>{
+    snap('add');
+    const fgId=addFG(parentNode.id,fn,grpLabel,parentNode.depth+1);
+    const arr=(wordArr&&wordArr.length)?wordArr:wordsTxt.trim().split(/\s+/);
+    // Each word gets its own class node starting as '?' — user clicks to change
+    arr.forEach(w=>{
+      const cid=mkNode('c',{cls:'?'},fgId,parentNode.depth+2);
+      mkNode('m',{mot:w},cid,parentNode.depth+3);
+    });
+    renderTree(fgId);
+    setHL('Groupe '+grpLabel+' ('+fn+') ajouté. Cliquez les "?" pour changer les classes.');
+    clearSel();
+  }));
+  buildCtxAt('Fonction de '+grpLabel+' dans '+parentGrp, items, (cx||0)+12, (cy||0)+12);
+}
+
+// ═══════════════════════════════════════════════
+//  CONTEXT MENUS
+// ═══════════════════════════════════════════════
+let ctxActs=[];
+
+function openMenu(e,id){ const n=S.nodes[id]; if(!n) return; const ev=e||fakeEv(n);
+  if(n.kind==='p') menuP(ev);
+  else if(n.kind==='fg') menuFG(ev,n);
+  else if(n.kind==='g') menuG(ev,n);
+  else if(n.kind==='c') menuC(ev,n);
+}
+function openAdd(e,id){ openMenu(e,id); }
+function fakeEv(n){ return {clientX:n.x,clientY:n.y,stopPropagation:()=>{}}; }
+
+// ── P ──
+function menuP(ev){
+  buildCtx('Ajouter à P',[
+    mkItem('Sujet','fn-s',()=>{ snap('add'); const id=addFG(S.rootId,'Sujet','GN',1); renderTree(id); setHL('Sujet ajouté.'); }),
+    mkItem('Prédicat','fn-p',()=>{ snap('add'); const id=addFG(S.rootId,'Prédicat','GV',1); renderTree(id); setHL('Prédicat ajouté.'); }),
+    mkItem('Compl. de P','fn-c',()=>{ snap('add'); const id=addFG(S.rootId,'Compl. de P','GN',1); renderTree(id); setHL('Compl. de P ajouté.'); }),
+  ],ev);
+}
+
+// ── Fonction+Groupe node ──
+function menuFG(ev,n){
+  const grps=(GRP4FN[n.fn]||['GN','GV','GAdj','GPrép','GAdv']).filter(g=>!secOnly(g)||S.mode==='secondaire');
+  const cx=ev.clientX+8, cy=ev.clientY+8;
+  const items=[
+    ...grps.map(g=>mkItemColor(
+      'Changer → '+g,
+      (GRP_COLORS[g]||GRP_COLORS['default']).bg,
+      (GRP_COLORS[g]||GRP_COLORS['default']).b,
+      ()=>{ snap('chg'); n.grp=g; n.grpCls=GRP_CLS[g]||GRP_CLS['default']; renderTree(); setHL('Groupe changé en '+g+'.'); }
+    )),
+    null,
+    mkItem('+ Ajouter une classe de mot','cls',()=>showClassMenu(cx,cy,n.id,n.depth+1)),
+    mkItem('+ Ajouter un sous-groupe','grp',()=>showSubGrpMenu(cx,cy,n)),
+  ];
+  buildCtxAt('Modifier '+n.fn+' / '+n.grp, items, cx, cy);
+}
+
+// ── Standalone Group ──
+function menuG(ev,n){
+  const cx=ev.clientX+8, cy=ev.clientY+8;
+  const items=[
+    mkItem('+ Ajouter une classe de mot','cls',()=>showClassMenu(cx,cy,n.id,n.depth+1)),
+    mkItem('+ Ajouter un sous-groupe','grp',()=>showSubGrpMenu(cx,cy,n)),
+  ];
+  buildCtxAt('Ajouter dans '+n.grp, items, cx, cy);
+}
+
+// ── Classe ──
+function menuC(ev,n){
+  const cx=ev.clientX+8, cy=ev.clientY+8;
+  // First section: change the class type
+  const clsItems = ALL_CLASSES.filter(c=>!secOnly(c)||S.mode==='secondaire').map(c=>mkItemColor(
+    c==='?'?'(inconnu)':c,'var(--cls-bg)','var(--cls-b)',
+    ()=>{ snap('chg'); n.cls=c; renderTree(); setHL('Classe changée en '+c+'.'); }
+  ));
+  // Second section: add a child word
+  const wordItems=buildWordItems(n.id, n.depth+1);
+  const sep=wordItems.length?[null]:[];
+  buildCtxAt('Modifier classe : '+n.cls, [...clsItems, ...sep, ...wordItems], cx, cy, true);
+}
+
+// ── Show class menu (under fg or g) ──
+function showClassMenu(cx,cy,parentId,depth){
+  const parentN=S.nodes[parentId]; if(!parentN) return;
+  const grpName=parentN.kind==='fg'?parentN.grp:(parentN.grp||'');
+  const validCls=(CLS4GRP[grpName]||CLS4GRP['default']).filter(c=>!secOnly(c)||S.mode==='secondaire');
+  const items=validCls.map(c=>mkItemColor(c,'var(--cls-bg)','var(--cls-b)',()=>{
+    showWordPickForCls(cx+8, cy+8, parentId, depth, c);
+  }));
+  buildCtxAt('Choisir la classe', items, cx, cy);
+}
+
+function showWordPickForCls(cx, cy, parentId, depth, className){
+  const items=buildWordItemsForCls(parentId, depth, className);
+  buildCtxAt('Mot pour '+className, items, cx+8, cy+8, true);
+}
+
+function buildWordItemsForCls(parentId, depth, className){
+  const items=[];
+  if(S.selected.size){
+    const txt=[...S.selected].sort((a,b)=>a-b).map(i=>S.words[i]?.text).filter(Boolean).join(' ');
+    items.push(mkItemColor('✓ Sélection : "'+txt+'"','#fef9c3','#fbbf24',()=>{
+      snap('add'); const cid=mkNode('c',{cls:className},parentId,depth); mkNode('m',{mot:txt},cid,depth+1);
+      renderTree(cid); setHL('Ajouté.'); clearSel();
+    }));
+    items.push(null);
+  }
+  S.words.forEach(w=>{ items.push(mkItemColor(w.text,'white','var(--mot-b)',()=>{
+    snap('add'); const cid=mkNode('c',{cls:className},parentId,depth); mkNode('m',{mot:w.text},cid,depth+1);
+    renderTree(cid); setHL('"'+w.text+'" ajouté.'); clearSel();
+  })); });
+  if(!items.filter(Boolean).length) items.push(mkItem('(Confirmez une phrase d\'abord)','?',closeCtx));
+  return items;
+}
+
+function buildWordItems(parentId, depth){
+  const items=[];
+  if(S.selected.size){
+    const txt=[...S.selected].sort((a,b)=>a-b).map(i=>S.words[i]?.text).filter(Boolean).join(' ');
+    items.push(mkItemColor('✓ Sélection : "'+txt+'"','#fef9c3','#fbbf24',()=>{
+      snap('add'); mkNode('m',{mot:txt},parentId,depth); renderTree(); setHL('Mot ajouté.'); clearSel();
+    }));
+    items.push(null);
+  }
+  S.words.forEach(w=>{ items.push(mkItemColor(w.text,'white','var(--mot-b)',()=>{
+    snap('add'); mkNode('m',{mot:w.text},parentId,depth); renderTree(); setHL('"'+w.text+'" ajouté.'); clearSel();
+  })); });
+  if(!items.filter(Boolean).length) items.push(mkItem('(Confirmez une phrase d\'abord)','?',closeCtx));
+  return items;
+}
+
+function showSubGrpMenu(cx,cy,n){
+  const parentGrp=n.kind==='fg'?n.grp:(n.grp||'');
+  const options=(SUBGRP4GRP[parentGrp]||SUBGRP4GRP['default']).filter(g=>!secOnly(g)||S.mode==='secondaire');
+  const items=options.map(g=>{
+    const c=GRP_COLORS[g]||GRP_COLORS['default'];
+    return mkItemColor(g,c.bg,c.b,()=>{
+      showSubGrpFnMenu(n, g, cx+12, cy+12);
+    });
+  });
+  buildCtxAt('Sous-groupe dans '+parentGrp, items, cx, cy);
+}
+
+function showSubGrpFnMenu(parentN, grpLabel, cx, cy){
+  const parentGrp=parentN.kind==='fg'?parentN.grp:(parentN.grp||'');
+  const defaultFn=SUBFN4[parentGrp+':'+grpLabel]||'Compl.';
+  const allFns=[defaultFn,'CD','CI','Compl. du N','Modificateur','Compl. de la Prép.','Att. du Compl.','Compl. Circ.'].filter((v,i,a)=>a.indexOf(v)===i);
+  const items=allFns.map(fn=>mkItemColor(fn,'var(--fn-o-bg)','var(--fn-o-b)',()=>{
+    snap('add');
+    const id=addFG(parentN.id,fn,grpLabel,parentN.depth+1);
+    renderTree(id); setHL('Sous-groupe '+grpLabel+' ('+fn+') ajouté.');
+  }));
+  buildCtxAt('Fonction de '+grpLabel, items, cx+12, cy+12);
+}
+
+// Show word class menu after drop (single word)
+function showWordClassMenu(nodeId, wordText){
+  const n=S.nodes[nodeId]; if(!n) return;
+  const grpName=n.kind==='fg'?n.grp:(n.grp||'');
+  const validCls=(CLS4GRP[grpName]||CLS4GRP['default']).filter(c=>!secOnly(c)||S.mode==='secondaire');
+  const outerEl=document.getElementById('tree-outer');
+  const rect=outerEl.getBoundingClientRect();
+  const cx=Math.min(rect.left+n.x-outerEl.scrollLeft+20, window.innerWidth-220);
+  const cy=Math.min(rect.top+n.y-outerEl.scrollTop+30, window.innerHeight-300);
+  const items=validCls.map(c=>mkItemColor(c,'var(--cls-bg)','var(--cls-b)',()=>{
+    snap('add');
+    const cid=mkNode('c',{cls:c},nodeId,n.depth+1);
+    mkNode('m',{mot:wordText},cid,n.depth+2);
+    renderTree(cid); setHL('"'+wordText+'" ajouté sous '+c+'.'); clearSel();
+  }));
+  buildCtxAt('Classe pour "'+wordText+'"', items, cx, cy);
+}
+
+// ── helpers ──
+function addFG(parentId,fn,grp,depth){
+  return mkNode('fg',{fn,grp,fnCls:FN_CLS[fn]||FN_CLS['default'],grpCls:GRP_CLS[grp]||GRP_CLS['default']},parentId,depth);
+}
+
+function secOnly(label){ return ['Sub. Compl.','Sub. rel.','Pron. rel.','Sub.'].includes(label); }
+
+function mkItem(label,type,action){ return {label,type,action,dot:type==='cls'?'var(--cls-bg)':type==='grp'?'var(--go-bg)':type==='fn-s'?'var(--fn-s-bg)':type==='fn-p'?'var(--fn-p-bg)':type==='fn-c'?'var(--fn-c-bg)':'var(--s2)',border:'var(--b2)'}; }
+function mkItemColor(label,bg,border,action){ return {label,action,dot:bg,border}; }
+
+function buildCtx(title, items, ev, scroll=false){
+  buildCtxAt(title, items, ev.clientX+8, ev.clientY+8, scroll);
+}
+function buildCtxAt(title, items, cx, cy, scroll=false){
+  const ctx=document.getElementById('ctx');
+  let h=`<div class="ctx-title">${title}</div>`;
+  h+=scroll?'<div style="max-height:260px;overflow-y:auto">':'';
+  ctxActs=[];
+  items.forEach((item,i)=>{
+    if(!item){ h+='<div class="ctx-sep"></div>'; ctxActs.push(null); return; }
+    ctxActs.push(item.action);
+    h+=`<div class="ctx-item" onclick="runCtx(${i})"><div class="ctx-dot" style="background:${item.dot};border-color:${item.border}"></div>${item.label}</div>`;
+  });
+  h+=scroll?'</div>':'';
+  ctx.innerHTML=h; ctx.classList.add('open');
+  ctx.style.left=cx+'px'; ctx.style.top=cy+'px';
+  requestAnimationFrame(()=>{
+    const r=ctx.getBoundingClientRect();
+    if(r.right>window.innerWidth-8) ctx.style.left=(cx-r.width-12)+'px';
+    if(r.bottom>window.innerHeight-8) ctx.style.top=(cy-r.height-12)+'px';
+  });
+}
+let _ctxBlocked = false;
+function runCtx(i){
+  const a = ctxActs[i];
+  if(!a){ closeCtx(); return; }
+  // Block the document click listener from closing the NEXT menu
+  _ctxBlocked = true;
+  closeCtx();
+  a();
+  // Unblock after the event bubble finishes
+  setTimeout(()=>{ _ctxBlocked = false; }, 80);
+}
+function closeCtx(){ document.getElementById('ctx').classList.remove('open'); }
+document.addEventListener('click',e=>{
+  if(_ctxBlocked) return;
+  const ctx=document.getElementById('ctx');
+  if(ctx.classList.contains('open')&&!ctx.contains(e.target)) closeCtx();
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){closeCtx();clearSel();} });
+
+// ═══════════════════════════════════════════════
+//  PHRASE WORDS
+// ═══════════════════════════════════════════════
+function setPhrase(){
+  const raw=document.getElementById('phraseInput').value.trim(); if(!raw) return;
+  snap('phrase'); S.phrase=raw;
+  // Split off trailing punctuation
+  const m=raw.match(/^(.*?)([.!?]+)?\s*$/);
+  S.punct=m&&m[2]?m[2]:'';
+  const body=m&&m[1]?m[1].trim():raw;
+  S.words=tokenize(body); S.selected=new Set();
+  renderWords(); renderClasses(); resetMR();
+  setHL('Phrase confirmée. Cliquez sur P pour construire l\'arbre.');
+}
+function loadQP(btn){ document.getElementById('phraseInput').value=btn.textContent; setPhrase(); }
+function tokenize(p){
+  const t=p.match(/[a-zA-ZÀ-ÿœ''`\-]+/g)||[];
+  return t.map((text,idx)=>({text,color:'',cls:'?',idx}));
+}
+
+function renderWords(){
+  const c=document.getElementById('pwords');
+  if(!S.words.length){ c.innerHTML='<span style="color:var(--t3);font-size:.77rem">Confirmez une phrase.</span>'; return; }
+  c.innerHTML='';
+  S.words.forEach((w,i)=>{
+    const el=document.createElement('span');
+    let cls='pw';
+    if(S.selected.has(i)) cls+=' sel';
+    if(w.color) cls+=' c-'+w.color;
+    el.className=cls; el.textContent=w.text; el.draggable=true;
+    el.addEventListener('click',()=>togWord(i));
+    el.addEventListener('dragstart',e=>{ S.dragWordIdx=i; el.classList.add('dragging-word'); e.dataTransfer.effectAllowed='copy'; const g=document.getElementById('drag-ghost'); g.textContent=w.text; g.style.display='block'; e.dataTransfer.setDragImage(g,0,0); setTimeout(()=>g.style.display='none',0); });
+    el.addEventListener('dragend',()=>{ el.classList.remove('dragging-word'); S.dragWordIdx=null; });
+    c.appendChild(el);
+  });
+  // punctuation badge (not draggable)
+  if(S.punct){ const pel=document.createElement('span'); pel.className='pw-punct'; pel.textContent=S.punct; c.appendChild(pel); }
+  updSel();
+}
+function togWord(i){ if(S.selected.has(i)) S.selected.delete(i); else S.selected.add(i); renderWords(); updSel(); }
+function updSel(){
+  const box=document.getElementById('selinfo'); const n=S.selected.size;
+  if(!n){ box.classList.remove('on'); return; }
+  box.classList.add('on');
+  document.getElementById('seltext').textContent=[...S.selected].sort((a,b)=>a-b).map(i=>S.words[i]?.text).filter(Boolean).join(' ');
+  document.getElementById('selcount').textContent=n+' mot(s)';
+}
+function clearSel(){ S.selected=new Set(); renderWords(); }
+function colorSel(){ if(!S.selected.size) return; snap('color'); const t=document.getElementById('colorTarget').value; S.selected.forEach(i=>{ if(S.words[i]) S.words[i].color=t; }); renderWords(); setHL('Couleur appliquée.'); }
+function clearColors(){ snap('clearColors'); S.words.forEach(w=>w.color=''); renderWords(); }
+
+// ═══════════════════════════════════════════════
+//  TABS
+// ═══════════════════════════════════════════════
+function switchTab(t){
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tcontent').forEach(c=>c.classList.remove('active'));
+  document.getElementById('tab-'+t).classList.add('active');
+  document.getElementById('content-'+t).classList.add('active');
+}
+function goManip(id){ switchTab('manip'); setTimeout(()=>{ const el=document.getElementById('mz-'+id); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); },80); }
+
+// ═══════════════════════════════════════════════
+//  CLASSES TABLE
+// ═══════════════════════════════════════════════
+function renderClasses(){
+  const c=document.getElementById('classes-content');
+  if(!S.words.length){ c.innerHTML='<div style="color:var(--t3);font-size:.77rem">Confirmez une phrase.</div>'; return; }
+  let h=`<table class="ctable"><thead><tr><th>#</th><th>Mot</th><th>Classe</th><th></th></tr></thead><tbody>`;
+  S.words.forEach((w,i)=>{
+    const cls=w.cls||'?'; const bk=CLS_CB[cls]||'_';
+    h+=`<tr><td style="color:var(--t3)">${i+1}</td><td style="font-weight:500">${w.text}</td>
+    <td><select class="csel" onchange="setWC(${i},this.value)">${ALL_CLASSES.map(o=>`<option value="${o}"${o===cls?' selected':''}>${o}</option>`).join('')}<option value="?"${cls==='?'?' selected':''}>?</option></select></td>
+    <td><span class="cbadge cb${bk}">${cls}</span></td></tr>`;
+  });
+  h+='</tbody></table>'; c.innerHTML=h;
+}
+function setWC(i,v){ snap('cls'); S.words[i].cls=v; const bk=CLS_CB[v]||'_'; const rows=document.querySelectorAll('#classes-content .cbadge'); if(rows[i]){ rows[i].className='cbadge cb'+bk; rows[i].textContent=v; } }
+
+// ═══════════════════════════════════════════════
+//  MANIPULATIONS (with capitalization logic)
+// ═══════════════════════════════════════════════
+function capitalFirst(str){ if(!str) return str; return str.charAt(0).toUpperCase()+str.slice(1); }
+function lowerFirst(str){ if(!str) return str; return str.charAt(0).toLowerCase()+str.slice(1); }
+
+function buildWords(overrides={}){
+  // overrides: {idx: 'newText'} or idx: null to remove
+  return S.words.map((w,i)=>{ if(i in overrides) return overrides[i]; return w.text; }).filter(v=>v!==null&&v!==undefined);
+}
+
+function applyCapRules(tokens){
+  // First non-null token gets capitalized
+  if(!tokens.length) return tokens;
+  tokens[0] = capitalFirst(tokens[0]);
+  return tokens;
+}
+
+function renderManipResult(id, tokens, useStrikethrough=null, insertions={}){
+  if(!tokens) return;
+  let parts=[];
+  if(useStrikethrough){
+    // build from S.words with strike
+    parts=S.words.map((w,i)=>{
+      if(useStrikethrough.has(i)) return `<span class="m-cross">${w.text}</span>`;
+      const ins=insertions[i];
+      return (ins?`<span class="m-ins">${ins}</span> `:'') + w.text;
+    });
+  } else {
+    parts=tokens.map((t,i)=>{ if(typeof t==='object'&&t.hi) return `<span class="m-hi">${t.v}</span>`; if(typeof t==='object'&&t.ins) return `<span class="m-ins">${t.v}</span>`; return t; });
+  }
+  // append punct
+  const hasPunct=!!(S.punct);
+  document.getElementById('mr-'+id).innerHTML=parts.join(' ')+(hasPunct?S.punct:'');
+}
+
+function getSel(){ return [...S.selected].sort((a,b)=>a-b); }
+function getSelTxt(){ return getSel().map(i=>S.words[i]?.text).filter(Boolean); }
+function noSel(id){ document.getElementById('mr-'+id).innerHTML='<span style="color:var(--t3)">Sélectionnez des mots.</span>'; }
+
+function applyEnc(t){
+  if(!S.words.length) return; const idx=getSel(); if(!idx.length){noSel('encadrement');return;}
+  const selTxt=getSelTxt().join(' ');
+  const others=S.words.filter((_,i)=>!S.selected.has(i)).map(w=>w.text);
+  let html='';
+  if(t==='cq') html=`C'est <span class="m-hi">[ ${selTxt} ]</span> qui ${others.join(' ')}${S.punct}`;
+  else if(t==='csq') html=`Ce sont <span class="m-hi">[ ${selTxt} ]</span> qui ${others.join(' ')}${S.punct}`;
+  else if(t==='np'){
+    html=S.words.map((w,i)=>S.selected.has(i)?`ne <span class="m-hi">${w.text}</span> pas`:w.text).join(' ')+S.punct;
+  }
+  document.getElementById('mr-encadrement').innerHTML=html;
+}
+
+function applyDep(pos){
+  if(!S.words.length) return; const idx=getSel(); if(!idx.length){noSel('deplacement');return;}
+  const selTxt=getSelTxt();
+  const rest=S.words.filter((_,i)=>!S.selected.has(i)).map(w=>w.text);
+  let arr;
+  if(pos==='d'){ arr=[...selTxt.map(t=>`<span class="m-hi">${t}</span>`),',',...rest.map((t,i)=>i===0?lowerFirst(t):t)]; }
+  else { arr=[...rest,...[','],...selTxt.map(t=>`<span class="m-hi">${t}</span>`)]; }
+  // capitalize first
+  if(arr.length&&typeof arr[0]==='string'){ arr[0]=capitalFirst(arr[0]); }
+  document.getElementById('mr-deplacement').innerHTML=arr.join(' ').replace(/ ,/g,',')+S.punct;
+}
+
+function applyEff(){
+  if(!S.words.length) return; const idx=getSel(); if(!idx.length){noSel('effacement');return;}
+  const kept=S.words.map((w,i)=>S.selected.has(i)?`<span class="m-cross">${w.text}</span>`:w.text);
+  // First visible word gets capitalized
+  const firstVisIdx=S.words.findIndex((_,i)=>!S.selected.has(i));
+  if(firstVisIdx>0){ kept[firstVisIdx]=capitalFirst(S.words[firstVisIdx].text); }
+  document.getElementById('mr-effacement').innerHTML=kept.join(' ')+S.punct;
+}
+
+function applyAjout(pos){
+  if(!S.words.length) return; const word=document.getElementById('ajout-word').value.trim(); if(!word) return;
+  const idx=getSel(); let parts;
+  if(!idx.length){ parts=[...S.words.map(w=>w.text),`<span class="m-ins">${word}</span>`]; }
+  else{ const f=idx[0],l=idx[idx.length-1]; parts=S.words.map((w,i)=>{ if(pos==='av'&&i===f) return`<span class="m-ins">${word}</span> ${w.text}`; if(pos==='ap'&&i===l) return`${w.text} <span class="m-ins">${word}</span>`; return w.text; }); }
+  if(parts.length&&typeof parts[0]==='string'){ parts[0]=capitalFirst(parts[0]); }
+  document.getElementById('mr-ajout').innerHTML=parts.join(' ')+S.punct;
+}
+
+function applyRepl(){
+  if(!S.words.length) return; const rep=document.getElementById('repl-word').value.trim(); if(!rep) return;
+  const idx=getSel(); if(!idx.length){noSel('remplacement');return;}
+  let done=false;
+  const parts=S.words.map((w,i)=>{ if(S.selected.has(i)){ if(!done){done=true;return`<span class="m-ins">${rep}</span>`;} return null; } return w.text; }).filter(p=>p!==null);
+  if(parts.length&&typeof parts[0]==='string'){ parts[0]=capitalFirst(parts[0]); }
+  document.getElementById('mr-remplacement').innerHTML=parts.join(' ')+S.punct;
+}
+
+function applyPron(p){
+  if(!S.words.length) return; const idx=getSel(); if(!idx.length){noSel('pronominalisation');return;}
+  // Check if selection includes idx 0 (start of sentence)
+  const isStart=S.selected.has(0)||idx[0]===0;
+  const pronDisplay=isStart?capitalFirst(p):p;
+  let done=false;
+  const parts=S.words.map((w,i)=>{ if(S.selected.has(i)){ if(!done){done=true;return`<span class="m-ins">${pronDisplay}</span>`;} return null; } return w.text; }).filter(p=>p!==null);
+  if(parts.length&&typeof parts[0]==='string') parts[0]=capitalFirst(parts[0]);
+  document.getElementById('mr-pronominalisation').innerHTML=parts.join(' ')+S.punct;
+}
+
+function markCoord(t){ const w=document.getElementById('coord-word').value.trim(); if(!w) return; document.getElementById('mr-coordination').innerHTML=`Le mot <span class="m-hi">${w}</span> est un <strong>${t}</strong>.`; }
+
+function resetMR(){ ['encadrement','deplacement','effacement','ajout','remplacement','pronominalisation','coordination'].forEach(id=>{ const el=document.getElementById('mr-'+id); if(el) el.innerHTML='<span style="color:var(--t3)">Sélectionnez des mots.</span>'; }); }
+
+// ═══════════════════════════════════════════════
+//  UNDO
+// ═══════════════════════════════════════════════
+function snap(t){
+  S.history.push({t,phrase:S.phrase,punct:S.punct,words:JSON.parse(JSON.stringify(S.words)),nodes:JSON.parse(JSON.stringify(S.nodes)),nid:S.nid,sel:new Set(S.selected)});
+  if(S.history.length>60) S.history.shift();
+}
+function undo(){
+  if(!S.history.length) return;
+  const h=S.history.pop();
+  S.phrase=h.phrase; S.punct=h.punct; S.words=h.words; S.nodes=h.nodes; S.nid=h.nid; S.selected=h.sel;
+  document.getElementById('phraseInput').value=S.phrase;
+  renderWords(); renderTree(); renderClasses(); setHL('Annulé : '+h.t+'.');
+}
+
+// ═══════════════════════════════════════════════
+//  MISC
+// ═══════════════════════════════════════════════
+function setMode(mode,btn){
+  S.mode=mode; document.querySelectorAll('.mtbtn').forEach(b=>b.classList.remove('active')); btn.classList.add('active');
+  document.querySelectorAll('.sec-only').forEach(el=>el.style.display=mode==='secondaire'?'':'none');
+}
+function setHL(msg){ document.getElementById('hlabel').textContent=msg; }
+function resetAll(){
+  if(!confirm('Tout effacer ?')) return;
+  S.phrase=''; S.punct=''; S.words=[]; S.selected=new Set(); S.history=[]; S.nodes={}; S.nid=0;
+  document.getElementById('phraseInput').value='';
+  initRoot(); renderWords(); renderClasses(); resetMR(); setHL('Réinitialisé.');
+}
+document.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();undo();} });
+
+// ═══════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════
+function initRoot(){
+  S.nid=0; S.nodes={};
+  S.nodes['root']={id:'root',kind:'p',parentId:null,children:[],depth:0,x:480,y:LY[0],mp:false};
+  S.rootId='root';
+  renderTree();
+}
+
+initRoot();
+setPhrase();
+</script>
+</body>
+</html>
