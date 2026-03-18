@@ -360,6 +360,7 @@ body.fs-on .fs-hide{display:none!important;}
         <div onclick="exportPNG();toggleExportMenu()" style="padding:7px 10px;border-radius:5px;cursor:pointer;font-size:.76rem;color:var(--t2);display:flex;align-items:center;gap:6px" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background=''">📷 En image (PNG)</div>
       </div>
     </div>
+    <button class="hbtn" onclick="showAbout()">ℹ️ À propos</button>
     <button class="hbtn red" onclick="resetAll()">🗑 Tout effacer</button>
   </div>
 </header>
@@ -385,11 +386,11 @@ body.fs-on .fs-hide{display:none!important;}
     <div class="lsec left-content">
       <div class="ltitle">Manipulations syntaxiques</div>
       <div class="mlist">
-        <button class="mlbtn" onclick="goManip('encadrement')">🔲 Encadrement <span class="mbadge">sélect.</span></button>
-        <button class="mlbtn" onclick="goManip('deplacement')">↔️ Déplacement <span class="mbadge">sélect.</span></button>
-        <button class="mlbtn" onclick="goManip('effacement')">✂️ Effacement <span class="mbadge">sélect.</span></button>
-        <button class="mlbtn" onclick="goManip('ajout')">➕ Ajout</button>
-        <button class="mlbtn" onclick="goManip('remplacement')">🔄 Remplacement / Pronom. <span class="mbadge">sélect.</span></button>
+        <button class="mlbtn" id="mlbtn-encadrement" onclick="goManipMenu(event,'encadrement')">🔲 Encadrement <span class="mbadge">sélect.</span></button>
+        <button class="mlbtn" id="mlbtn-remplacement" onclick="goManipMenu(event,'remplacement')">🔄 Remplacement / Pronom. <span class="mbadge">sélect.</span></button>
+        <button class="mlbtn" id="mlbtn-deplacement" onclick="goManipMenu(event,'deplacement')">↔️ Déplacement <span class="mbadge">sélect.</span></button>
+        <button class="mlbtn" id="mlbtn-effacement" onclick="goManipMenu(event,'effacement')">✂️ Effacement <span class="mbadge">sélect.</span></button>
+        <button class="mlbtn" id="mlbtn-ajout" onclick="goManipMenu(event,'ajout')">➕ Ajout</button>
       </div>
     </div>
   </aside>
@@ -503,9 +504,9 @@ body.fs-on .fs-hide{display:none!important;}
             <canvas id="annot-canvas"></canvas>
           </div>
           <div id="rect-sel-overlay"></div>
+          <button id="highlight-exit-btn" onclick="exitHighlightMode()" style="display:none;position:absolute;top:12px;right:12px;z-index:200;background:#ef4444;color:white;border:none;border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-weight:700;font-size:.78rem;cursor:pointer;align-items:center;gap:5px;box-shadow:0 4px 12px rgba(0,0,0,.25);touch-action:manipulation">✕ Quitter la mise en évidence</button>
           <!-- Zoom controls -->
           <div id="tree-zoom-controls">
-            <button class="zoom-btn" id="annotToggleBtn" onclick="toggleAnnotMode()" title="Outils annotation" style="font-size:.85rem">🛠</button>
             <button class="zoom-btn" id="handModeBtn" onclick="toggleHandMode()" title="Outil main — déplacer la vue" style="font-size:1rem">✋</button>
             <div style="width:1px;height:18px;background:var(--bd);margin:0 1px"></div>
             <button class="zoom-btn" onclick="zoomOut()" title="Zoom arrière">－</button>
@@ -517,9 +518,10 @@ body.fs-on .fs-hide{display:none!important;}
         <div id="phrase-bottom"><span class="pb-empty">La phrase reconstituée apparaîtra ici.</span></div>
         <div class="pbar" id="pbar-bottom" style="border-top:1px solid var(--bd);border-bottom:none;min-height:0;padding:6px 8px 6px 14px;display:flex;flex-direction:row;align-items:center;gap:6px;">
           <div class="pwords" id="pwords-bottom" style="flex:1;min-height:32px;padding:4px 4px;"><span style="color:var(--t3);font-size:.77rem">Confirmez une phrase pour commencer.</span></div>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">
-            <button class="pabtn" onclick="clearSel()" title="Désélectionner tout" style="white-space:nowrap">✕ Désélect.</button>
+          <div style="display:flex;flex-direction:row;align-items:center;gap:4px;flex-shrink:0;">
             <div class="selinfo" id="selinfo-bottom" style="font-size:.65rem;white-space:nowrap">Sél. : <strong id="seltext-bottom">—</strong>&nbsp;·&nbsp;<span id="selcount-bottom">0</span></div>
+            <button class="pabtn" onclick="clearSel()" title="Désélectionner tout" style="white-space:nowrap">✕ Désélect.</button>
+            <button class="pabtn" onclick="undo()" title="Annuler (Ctrl+Z)" style="white-space:nowrap">↩ Annuler</button>
           </div>
         </div>
         <!-- Print only -->
@@ -632,16 +634,15 @@ body.fs-on .fs-hide{display:none!important;}
     </div><!-- end carea -->
     </div><!-- end fs-col -->
 
-    <div class="hbar">
-      <span id="hlabel">Cliquez sur P pour commencer.</span>
-      <button class="hbtn" style="padding:3px 8px;font-size:.67rem" onclick="undo()">↩ Annuler</button>
-      <span class="credits">Créé par Kevin Tremblay – Technopédagogue, Cardinal-Roy · Arboria</span>
+    <div class="hbar" style="padding:2px 14px;min-height:0;">
+      <span class="credits" style="margin-left:auto">Créé par Kevin Tremblay – Technopédagogue, Cardinal-Roy · Arboria 2026</span>
     </div>
   </div>
 </div>
 
 <!-- annotation toolbar moved to tree-toolbar inline -->
 
+<div id="manip-result-card" style="display:none;position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:var(--sf);border:1.5px solid var(--bd);border-radius:10px;padding:10px 16px;z-index:600;box-shadow:0 4px 20px rgba(0,0,0,.18);max-width:720px;width:max-content;font-family:'JetBrains Mono',monospace;font-size:.85rem;align-items:center;gap:10px;flex-wrap:wrap"></div>
 <div class="ctx" id="ctx"></div>
 <div id="drag-ghost"></div>
 <script>
@@ -829,8 +830,11 @@ function applyY(id){
     const n=S.nodes[nid]; if(!n) return;
     const realChildren=n.children.filter(c=>S.nodes[c]&&S.nodes[c].kind!=='motlink'&&S.nodes[c].kind!=='punct');
     if(!realChildren.length){
-      // Terminal node: force to maxD
-      n._structDepth=maxD;
+      // Only force actual word-level leaf nodes to maxD;
+      // structural nodes (fg/g/psub) without children keep their structural depth
+      if(n.kind==='m'||n.kind==='c'||n.kind==='intro'){
+        n._structDepth=maxD;
+      }
     } else {
       realChildren.forEach(c=>forceTerminalsToMaxDepth(c));
     }
@@ -968,7 +972,11 @@ function doLayout(){
   svg.setAttribute('width',maxX); svg.setAttribute('height',maxY);
   svg.style.width=maxX+'px'; svg.style.height=maxY+'px';
   const ac=document.getElementById('annot-canvas');
-  if(ac){ac.width=maxX;ac.height=maxY;ac.style.width=maxX+'px';ac.style.height=maxY+'px';}
+  if(ac){
+    ac.width=maxX;ac.height=maxY;
+    ac.style.width=maxX+'px';ac.style.height=maxY+'px';
+    ac._naturalW=maxX; ac._naturalH=maxY;
+  }
 }
 
 function computeAndApplyScale(forceAutoFit){
@@ -1039,7 +1047,11 @@ function renderTree(animId){
   renderEdges();
   renderPhraseBottom();
   // Auto-fit after render (use rAF so DOM has settled)
-  requestAnimationFrame(()=>{ computeAndApplyScale(true); });
+  requestAnimationFrame(()=>{
+    computeAndApplyScale(true);
+    if(_highlightRoot&&S.nodes[_highlightRoot]) highlightSubtree(_highlightRoot);
+    else if(_highlightRoot) exitHighlightMode();
+  });
 }
 
 function renderNode(n,animId){
@@ -1775,18 +1787,16 @@ function getNodeLabel(n){
 // ── P ──
 function menuP(ev,n){
   // Always position relative to the actual rendered bubble element.
-  // ev.clientX is unreliable when the call comes from an inline onclick on nplus.
-  const nodeEl=document.getElementById('nd-'+n.id);
+  // Use actual click position when available (most reliable)
   let cx,cy;
-  if(nodeEl){
-    const r=nodeEl.getBoundingClientRect();
-    cx=r.left+4; cy=r.bottom+4;
-    // If menu would overflow bottom, show above
-    // (buildCtxAt will handle overflow correction too)
-  } else if(ev&&ev.clientX){
-    cx=ev.clientX+8; cy=(ev.clientY||0)+4;
+  if(ev&&ev.clientX>0&&ev.clientY>0){
+    cx=ev.clientX+6; cy=ev.clientY+6;
   } else {
-    cx=8; cy=8;
+    const nodeEl=document.getElementById('nd-'+n.id);
+    if(nodeEl){
+      const r=nodeEl.getBoundingClientRect();
+      cx=r.left+8; cy=r.bottom+4;
+    } else { cx=80; cy=80; }
   }
   const addFn=(fn,fnCls,grps)=>mkItem(fn,fnCls,()=>{
     // Ask for group type
@@ -1810,7 +1820,8 @@ function menuP(ev,n){
     mkItem('+ Coordination','fn-o',()=>startCoordination(n,'coord',cx,cy)),
     mkItem('+ Juxtaposition','fn-o',()=>startCoordination(n,'juxta',cx,cy))
   ]:[];
-  buildCtxAt('Ajouter à '+pLabel,[...stdItems,...coordItems],cx,cy);
+  const hlItem=mkItemColor('🔍 Mettre en évidence','#fef9c3','#fbbf24',()=>highlightSubtree(n.id));
+  buildCtxAt('Ajouter à '+pLabel,[...stdItems,...coordItems,null,hlItem],cx,cy);
 }
 
 function menuPN(ev,n){menuP(ev,n);}  // pn delegates to menuP
@@ -1907,6 +1918,8 @@ function menuFG(ev,n){
     mkItem('+ Classe de mot','cls',()=>showClassMenu(cx,cy,n.id,n.depth+1)),
     mkItem('+ Sous-groupe','grp',()=>showSubGrpMenu(cx,cy,n)),
   ];
+  items.push(null);
+  items.push(mkItemColor('🔍 Mettre en évidence','#fef9c3','#fbbf24',()=>highlightSubtree(n.id)));
   buildCtxAt('Modifier '+n.fn+' / '+n.grp,items,cx,cy);
 }
 
@@ -2282,7 +2295,11 @@ let _cancelLP=false; // set true by dragstart to prevent class menu from firing
 
 function renderWords(){
   const c=document.getElementById('pwords');
-  if(!S.words.length){c.innerHTML='<span style="color:var(--t3);font-size:.77rem">Confirmez une phrase.</span>';return;}
+  if(!S.words.length){
+    c.innerHTML='<span style="color:var(--t3);font-size:.77rem">Confirmez une phrase.</span>';
+    syncManipWordBar&&syncManipWordBar();
+    return;
+  }
   c.innerHTML='';
   S.words.forEach((w,i)=>{
     if(w.isPunct){
@@ -2559,21 +2576,28 @@ function initPbarSel(c){
       doDropAtPoint(e.clientX,e.clientY,lastHover);
     }
 
+    // After rect selection (stayed in pbar), suppress click that follows
+    if(mMode==='rect' && mMoved && !mLeftPbar) suppressNextMouseClick=true;
     mLeftPbar=false;
     mDown=false; mMode=null; mIdx=null; mMoved=false; updSel();
   }
   function onClick(e){
-    const idx=getIdxFromTarget(e.target);
-    if(idx===null) return;
+    // Suppress click that naturally follows a drag/rect (must check FIRST)
+    if(suppressNextMouseClick){
+      suppressNextMouseClick=false;
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     if(Date.now()-lastTouchTs<700){
       e.preventDefault();
       e.stopPropagation();
       return;
     }
-    if(suppressNextMouseClick){
-      suppressNextMouseClick=false;
-      e.preventDefault();
-      e.stopPropagation();
+    const idx=getIdxFromTarget(e.target);
+    if(idx===null){
+      // Clicked empty space in pbar → deselect if something is selected
+      if(S.selected.size>0){ S.selected=new Set(); _pbarUpdateSelDOM(); updSel(); }
       return;
     }
     e.preventDefault();
@@ -2890,7 +2914,12 @@ function initAnnotCanvas(){
   window._redrawAnnot=function(paths){
     const ctx=canvas.getContext('2d');
     ctx.clearRect(0,0,canvas.width,canvas.height);
+    const sc=S.treeScale||1;
+    const dpr=window.devicePixelRatio||1;
+    ctx.save();
+    ctx.scale(sc*dpr,sc*dpr);
     paths.forEach(p=>_drawPath(ctx,p));
+    ctx.restore();
   };
 
   function getCanvasPos(e){
@@ -2954,18 +2983,10 @@ function _straightenStroke(pts){
 function toggleAnnotMode(){
   const canvas=document.getElementById('annot-canvas');
   const panel=document.getElementById('annot-panel');
-  const btn=document.getElementById('annotToggleBtn');
   S.annot.active=!S.annot.active;
   canvas.classList.toggle('active',S.annot.active);
-  if(panel){
-    if(S.annot.active){
-      panel.style.display='flex';
-    } else {
-      panel.style.display='none';
-    }
-  }
-  if(btn) btn.classList.toggle('active',S.annot.active);
-  setHL(S.annot.active?'Mode annotation activé – utilisez la barre d\'outils.':'Mode annotation désactivé.');
+  if(panel) panel.style.display=S.annot.active?'flex':'none';
+  setHL(S.annot.active?'Mode annotation activé.':'Mode annotation désactivé.');
 }
 
 function setAnnotTool(tool){
@@ -2996,8 +3017,6 @@ function setAnnotTool(tool){
   document.querySelectorAll('.atbtn').forEach(b=>b.classList.remove('active'));
   const el=document.getElementById('at-'+tool);
   if(el)el.classList.add('active');
-  const btn=document.getElementById('annotToggleBtn');
-  if(btn) btn.classList.add('active');
 }
 
 function setAnnotColor(c){
@@ -3017,22 +3036,16 @@ function clearAnnot(){
   S.annot.drawing=false;
   canvas.classList.remove('active');
   document.querySelectorAll('.atbtn').forEach(b=>b.classList.remove('active'));
-  const btn=document.getElementById('annotToggleBtn');
-  if(btn) btn.classList.remove('active');
 }
 
 // ══════════════════════════════════════════════════════
-//  PRINT / EXPORT
+//  PRINT / EXPORT  (pure-canvas — no html2canvas dependency)
 // ══════════════════════════════════════════════════════
 function getTreeExportMetrics(){
   const metrics={};
   document.querySelectorAll('#tree-canvas .tnode').forEach(el=>{
     const id=el.id.replace('nd-','');
-    metrics[id]={
-      w:el.offsetWidth||72,
-      h:el.offsetHeight||44,
-      outline:el.style.outline||''
-    };
+    metrics[id]={w:el.offsetWidth||72,h:el.offsetHeight||44,outline:el.style.outline||''};
   });
   return metrics;
 }
@@ -3041,192 +3054,238 @@ function computeTreeBoundsFromMetrics(metrics){
   let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
   Object.values(S.nodes).forEach(n=>{
     const m=metrics[n.id]||{w:72,h:44};
-    minX=Math.min(minX,n.x-m.w/2);
-    maxX=Math.max(maxX,n.x+m.w/2);
-    minY=Math.min(minY,n.y-m.h/2);
-    maxY=Math.max(maxY,n.y+m.h/2);
+    minX=Math.min(minX,n.x-m.w/2); maxX=Math.max(maxX,n.x+m.w/2);
+    minY=Math.min(minY,n.y-m.h/2); maxY=Math.max(maxY,n.y+m.h/2);
     if(!n.parentId) return;
-    const p=S.nodes[n.parentId];
-    if(!p) return;
+    const p=S.nodes[n.parentId]; if(!p) return;
     const pm=metrics[p.id]||{w:72,h:44};
-    const x1=p.x, y1=p.y+pm.h/2, x2=n.x, y2=n.y-m.h/2;
-    minX=Math.min(minX,x1,x2);
-    maxX=Math.max(maxX,x1,x2);
-    minY=Math.min(minY,y1,y2);
-    maxY=Math.max(maxY,y1,y2);
+    const x1=p.x,y1=p.y+pm.h/2,x2=n.x,y2=n.y-m.h/2;
+    minX=Math.min(minX,x1,x2); maxX=Math.max(maxX,x1,x2);
+    minY=Math.min(minY,y1,y2); maxY=Math.max(maxY,y1,y2);
   });
-  if(!isFinite(minX)||!isFinite(minY)||!isFinite(maxX)||!isFinite(maxY)){
-    return {minX:0,minY:0,maxX:800,maxY:600};
-  }
-  return {minX,minY,maxX,maxY};
+  if(!isFinite(minX)) return{minX:0,minY:0,maxX:800,maxY:600};
+  return{minX,minY,maxX,maxY};
 }
 
-function buildFlatTreeExportStage(bgColor='#f4f1ec',pad=24){
+function computeTreeBounds(){ return computeTreeBoundsFromMetrics(getTreeExportMetrics()); }
+
+/* ===== PURE CANVAS TREE DRAW ===== */
+function drawTreeToCanvas(bgColor){
   const metrics=getTreeExportMetrics();
+  const nodes=Object.values(S.nodes).filter(n=>n.x!=null&&n.y!=null);
+  if(!nodes.length) return null;
   const b=computeTreeBoundsFromMetrics(metrics);
-  const shiftX=b.minX-pad;
-  const shiftY=b.minY-pad;
-  const width=Math.max(320,Math.ceil((b.maxX-b.minX)+pad*2));
-  const height=Math.max(220,Math.ceil((b.maxY-b.minY)+pad*2));
+  const cW=b.maxX-b.minX, cH=b.maxY-b.minY;
+  if(cW<=0||cH<=0) return null;
 
-  const wrap=document.createElement('div');
-  wrap.style.cssText=`position:absolute;left:0;top:0;margin:0;padding:0;background:${bgColor};display:inline-block;font-family:Syne,Arial,sans-serif;color:#1a1714;pointer-events:none;z-index:-9999;visibility:hidden;`;
+  // Canvas at 2× for sharpness. All coords are canvas-pixels.
+  const DPR=2, WMARK=56*DPR, PAD=32*DPR;
+  const BASE_W=1600*DPR, BASE_H=900*DPR;
+  const availW=BASE_W-PAD*2, availH=BASE_H-WMARK-PAD*2;
+  const sc=Math.min(availW/cW, availH/cH);   // CSS-px → canvas-px
+  const drawW=Math.ceil(cW*sc), drawH=Math.ceil(cH*sc);
+  const canvW=Math.max(BASE_W, drawW+PAD*2);
+  const canvH=Math.max(BASE_H, drawH+WMARK+PAD*2);
+  const origX=Math.round((canvW-drawW)/2 - b.minX*sc);
+  const origY=Math.round((canvH-WMARK-drawH)/2 - b.minY*sc);
 
-  const viewport=document.createElement('div');
-  viewport.style.cssText=`position:relative;overflow:hidden;background:${bgColor};width:${width}px;height:${height}px;`;
+  const canvas=document.createElement('canvas');
+  canvas.width=canvW; canvas.height=canvH;
+  const ctx=canvas.getContext('2d');
+  const tx=x=>origX+x*sc, ty=y=>origY+y*sc, sd=v=>v*sc;
 
-  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
-  svg.setAttribute('width',String(width));
-  svg.setAttribute('height',String(height));
-  svg.setAttribute('viewBox',`0 0 ${width} ${height}`);
-  svg.style.position='absolute';
-  svg.style.left='0';
-  svg.style.top='0';
-  svg.style.overflow='visible';
+  // Background
+  ctx.fillStyle=bgColor; ctx.fillRect(0,0,canvW,canvH);
 
-  Object.values(S.nodes).forEach(n=>{
+  // Color palette (resolved CSS vars)
+  const C={
+    p:{bg:'#1f2937',bd:'#374151',tx:'#ffffff'},
+    pn:{bg:'#1f2937',bd:'#4b5563',tx:'#e5e7eb'},
+    psub:{bg:'#fdf4ff',bd:'#d946ef',tx:'#7e22ce'},
+    fns:{bg:'#dbeafe',bd:'#93c5fd',tx:'#1d4ed8'},
+    fnp:{bg:'#fef3c7',bd:'#fcd34d',tx:'#b45309'},
+    fnc:{bg:'#ede9fe',bd:'#c4b5fd',tx:'#7c3aed'},
+    fno:{bg:'#f0fdf4',bd:'#86efac',tx:'#166534'},
+    gn:{bg:'#e0f2fe',bd:'#7dd3fc',tx:'#0369a1'},
+    gv:{bg:'#d1fae5',bd:'#6ee7b7',tx:'#047857'},
+    gadj:{bg:'#ffe4e6',bd:'#fca5a5',tx:'#9f1239'},
+    gprep:{bg:'#ede9fe',bd:'#c4b5fd',tx:'#6d28d9'},
+    gadv:{bg:'#ccfbf1',bd:'#5eead4',tx:'#0f766e'},
+    go:{bg:'#f0fdf4',bd:'#86efac',tx:'#166534'},
+    conj:{bg:'#fff7ed',bd:'#fb923c',tx:'#c2410c'},
+    cls:{bg:'#f9fafb',bd:'#9ca3af',tx:'#374151'},
+    mot:{bg:'#ffffff',bd:'#6b7280',tx:'#111827'},
+    intro:{bg:'#d1fae5',bd:'#6ee7b7',tx:'#047857'},
+    motlnk:{bg:'#d1fae5',bd:'#6ee7b7',tx:'#047857'},
+    punct:{bg:'#f0ede7',bd:'#ddd9d0',tx:'#6b6560'},
+  };
+  function nodeColors(n){
+    if(n.kind==='p') return C.p;
+    if(n.kind==='pn') return C.pn;
+    if(n.kind==='psub') return C.psub;
+    if(n.kind==='fg'){
+      const f=n.fn||'';
+      if(f.startsWith('Sujet')) return C.fns;
+      if(f.startsWith('Prédicat')) return C.fnp;
+      if(f.startsWith('Compl')) return C.fnc;
+      return C.fno;
+    }
+    if(n.kind==='g') return C[{GN:'gn',GV:'gv',GAdj:'gadj','GPrép':'gprep',GAdv:'gadv'}[n.grp||'']||'go'];
+    if(n.kind==='c') return n.isConj?C.conj:C.cls;
+    if(n.kind==='m') return C.mot;
+    if(n.kind==='intro') return C.intro;
+    if(n.kind==='motlink') return C.motlnk;
+    if(n.kind==='punct') return C.punct;
+    return C.mot;
+  }
+
+  function rrect(x,y,w,h,r){
+    r=Math.min(r,w/2,h/2);
+    ctx.beginPath();
+    ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y);
+    ctx.arcTo(x+w,y,x+w,y+r,r); ctx.lineTo(x+w,y+h-r);
+    ctx.arcTo(x+w,y+h,x+w-r,y+h,r); ctx.lineTo(x+r,y+h);
+    ctx.arcTo(x,y+h,x,y+h-r,r); ctx.lineTo(x,y+r);
+    ctx.arcTo(x,y,x+r,y,r); ctx.closePath();
+  }
+
+  // Draw edges
+  nodes.forEach(n=>{
     if(!n.parentId) return;
-    const p=S.nodes[n.parentId];
-    if(!p) return;
+    const p=S.nodes[n.parentId]; if(!p) return;
     const pm=metrics[p.id]||{w:72,h:44};
     const nm=metrics[n.id]||{w:72,h:44};
-    const x1=p.x-shiftX, y1=p.y+pm.h/2-shiftY, x2=n.x-shiftX, y2=n.y-nm.h/2-shiftY;
-
-    if(n.kind==='motlink'){
-      const line=document.createElementNS('http://www.w3.org/2000/svg','line');
-      line.setAttribute('x1',x1); line.setAttribute('y1',y1);
-      line.setAttribute('x2',x2); line.setAttribute('y2',y2);
-      line.setAttribute('stroke','var(--gv-b)'); line.setAttribute('stroke-width','1.8');
-      line.setAttribute('stroke-dasharray','4,3');
-      svg.appendChild(line);
-      return;
-    }
-
+    const x1=tx(p.x),y1=ty(p.y)+sd(pm.h/2),x2=tx(n.x),y2=ty(n.y)-sd(nm.h/2);
     if(n.kind==='punct') return;
-
-    if(n.kind==='m'||n.kind==='intro'){
-      const line=document.createElementNS('http://www.w3.org/2000/svg','line');
-      line.setAttribute('x1',x1); line.setAttribute('y1',y1);
-      line.setAttribute('x2',x2); line.setAttribute('y2',y2);
-      line.setAttribute('stroke','#c5bfb3'); line.setAttribute('stroke-width','1.5');
-      if(n.isConj) line.setAttribute('stroke-dasharray','5,3');
-      svg.appendChild(line);
+    ctx.save(); ctx.setLineDash([]);
+    if(n.kind==='motlink'){
+      ctx.strokeStyle='#6ee7b7'; ctx.lineWidth=sd(1.8);
+      ctx.setLineDash([sd(4),sd(3)]);
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+    } else if(n.kind==='m'||n.kind==='intro'){
+      ctx.strokeStyle='#c5bfb3'; ctx.lineWidth=sd(1.5);
+      if(n.isConj) ctx.setLineDash([sd(5),sd(3)]);
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
     } else {
+      ctx.strokeStyle='#c5bfb3'; ctx.lineWidth=sd(1.8);
       const my=(y1+y2)/2;
-      const path=document.createElementNS('http://www.w3.org/2000/svg','path');
-      path.setAttribute('d',`M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}`);
-      path.setAttribute('stroke','#c5bfb3');
-      path.setAttribute('stroke-width','1.8');
-      path.setAttribute('fill','none');
-      svg.appendChild(path);
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.bezierCurveTo(x1,my,x2,my,x2,y2); ctx.stroke();
+      ctx.fillStyle='#c5bfb3';
+      ctx.beginPath(); ctx.arc(x1,y1,sd(3),0,Math.PI*2); ctx.fill();
     }
-
-    const dot=document.createElementNS('http://www.w3.org/2000/svg','circle');
-    dot.setAttribute('cx',x1); dot.setAttribute('cy',y1); dot.setAttribute('r','3');
-    dot.setAttribute('fill','#c5bfb3');
-    svg.appendChild(dot);
+    ctx.restore();
   });
 
-  viewport.appendChild(svg);
+  // Draw nodes
+  const SYNE='Syne,Arial,sans-serif', MONO='"JetBrains Mono",monospace';
+  nodes.forEach(n=>{
+    const m=metrics[n.id]||{w:72,h:44};
+    const cols=nodeColors(n);
+    const nx=tx(n.x)-sd(m.w/2), ny=ty(n.y)-sd(m.h/2);
+    const nw=sd(m.w), nh=sd(m.h);
+    rrect(nx,ny,nw,nh,sd(10));
+    ctx.fillStyle=cols.bg; ctx.fill();
+    ctx.strokeStyle=cols.bd; ctx.lineWidth=sd(2); ctx.stroke();
 
-  Object.values(S.nodes).forEach(n=>{
-    const src=document.getElementById('nd-'+n.id);
-    if(!src) return;
-    const m=metrics[n.id]||{w:72,h:44,outline:''};
-    const clone=src.cloneNode(true);
-    clone.id='export-'+n.id;
-    clone.querySelectorAll('.nplus,.ndel').forEach(el=>el.remove());
-    clone.classList.remove('drag-over');
-    clone.style.position='absolute';
-    clone.style.transform='none';
-    clone.style.margin='0';
-    clone.style.left=(n.x-m.w/2-shiftX)+'px';
-    clone.style.top=(n.y-m.h/2-shiftY)+'px';
-    clone.style.width=m.w+'px';
-    clone.style.height=m.h+'px';
-    clone.style.boxSizing='border-box';
-    clone.style.pointerEvents='none';
-    clone.style.outline=m.outline||'';
-    viewport.appendChild(clone);
+    function drawTxt(lines){
+      const lh=lines.map(l=>l.sz*16*sc*1.3);
+      const total=lh.reduce((a,v)=>a+v,0)-lh[lh.length-1]*0.3;
+      let cy=ny+(nh-total)/2;
+      lines.forEach((l,i)=>{
+        const fs=l.sz*16*sc;
+        ctx.font=`${l.bold?'700':'600'} ${fs}px ${l.mono?MONO:SYNE}`;
+        ctx.fillStyle=cols.tx; ctx.globalAlpha=l.a===undefined?1:l.a;
+        ctx.textAlign='center'; ctx.textBaseline='top';
+        ctx.fillText(l.t||'', tx(n.x), cy, nw-sd(6));
+        cy+=lh[i];
+      });
+      ctx.globalAlpha=1;
+    }
+    if(n.kind==='p'||n.kind==='pn'){
+      drawTxt([{t:'PHRASE',sz:.53,a:.6},{t:n.label||'P',sz:.8,bold:true}]);
+    } else if(n.kind==='psub'){
+      if(n.fn) drawTxt([{t:n.fn,sz:.68,bold:true},{t:n.pstype,sz:.8}]);
+      else drawTxt([{t:'Sub.',sz:.53,a:.6},{t:n.pstype,sz:.8}]);
+    } else if(n.kind==='fg'){
+      drawTxt([{t:n.fn,sz:.68,bold:true},{t:n.grp,sz:.8}]);
+    } else if(n.kind==='g'){
+      drawTxt([{t:n.grp,sz:.8}]);
+    } else if(n.kind==='c'){
+      drawTxt([{t:'classe',sz:.53,a:.6},{t:n.cls&&n.cls!=='?'?n.cls:'–',sz:.8}]);
+    } else if(n.kind==='m'){
+      drawTxt([{t:n.mot,sz:.84,mono:true}]);
+    } else if(n.kind==='intro'){
+      drawTxt([{t:n.introType||'lien',sz:.53,a:.6},{t:n.mot||'?',sz:.8}]);
+    } else if(n.kind==='motlink'){
+      drawTxt([{t:n.mot||'?',sz:.84,mono:true,a:.7}]);
+    } else if(n.kind==='punct'){
+      drawTxt([{t:n.mot||'?',sz:.9,mono:true}]);
+    }
   });
 
-  wrap.appendChild(viewport);
-  return {wrap,width,height};
+  // Watermark strip
+  drawExportWatermark(ctx, canvW, canvH, window._arboriaLogoImg, WMARK);
+  return canvas;
 }
 
-async function rasterizeTreeStage(scale=2,bgColor='#f4f1ec'){
-  const stage=buildFlatTreeExportStage(bgColor,24);
-  document.body.appendChild(stage.wrap);
-  try{
-    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
-    const cv=await html2canvas(stage.wrap,{
-      backgroundColor:bgColor,
-      scale:scale,
-      useCORS:true,
-      allowTaint:true,
-      logging:false,
-      width:stage.width,
-      height:stage.height
-    });
-    return cv;
-  } finally {
-    if(stage.wrap&&stage.wrap.parentNode) stage.wrap.parentNode.removeChild(stage.wrap);
-  }
-}
-
-async function buildTreeExportImageCanvas(){
+/* ===== WATERMARK ===== */
+function drawExportWatermark(ctx,canvasWidth,canvasHeight,logoImg,stripHeightPx){
   const SC=2;
-  const WMARK=56*SC;
-  const RATIO=16/9;
-  const MARGIN=20*SC;
-  const logoImg=window._arboriaLogoImg;
-  const treeCv=await rasterizeTreeStage(SC,'#f4f1ec');
-
-  let outW=Math.max(treeCv.width + MARGIN*2, Math.ceil((treeCv.height + WMARK + MARGIN*2) * RATIO));
-  let outH=Math.ceil(outW / RATIO);
-  const minH=treeCv.height + WMARK + MARGIN*2;
-  if(outH < minH){
-    outH=minH;
-    outW=Math.ceil(outH * RATIO);
+  const sh=stripHeightPx;
+  ctx.fillStyle='rgba(255,255,255,0.96)';
+  ctx.fillRect(0,canvasHeight-sh,canvasWidth,sh);
+  ctx.strokeStyle='rgba(0,0,0,0.08)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(0,canvasHeight-sh); ctx.lineTo(canvasWidth,canvasHeight-sh); ctx.stroke();
+  const title='ARBORIA';
+  const copy='\u00a9 Kevin Tremblay \u00b7 Tous droits r\u00e9serv\u00e9s \u00b7 Arboria 2026';
+  const rightPad=18*SC, midY=canvasHeight-sh+sh/2;
+  ctx.font=`bold ${13*SC}px "Syne",Arial,sans-serif`;
+  const titleW=ctx.measureText(title).width;
+  ctx.font=`${9*SC}px "Syne",Arial,sans-serif`;
+  const copyW=ctx.measureText(copy).width;
+  let logoW=0; const logoH=22*SC;
+  if(logoImg&&logoImg.complete&&logoImg.naturalWidth>0){
+    logoW=Math.round(logoH*logoImg.naturalWidth/logoImg.naturalHeight);
   }
+  const gap=8*SC;
+  const blockW=logoW+(logoW>0?gap:0)+Math.max(titleW,copyW);
+  let x=canvasWidth-rightPad-blockW;
+  if(logoW>0){ try{ctx.drawImage(logoImg,x,midY-logoH/2,logoW,logoH);}catch(e){} x+=logoW+gap; }
+  ctx.textAlign='left'; ctx.textBaseline='middle';
+  ctx.font=`bold ${13*SC}px "Syne",Arial,sans-serif`;
+  ctx.fillStyle='rgba(22,101,52,0.92)'; ctx.fillText(title,x,midY-7*SC);
+  ctx.font=`${9*SC}px "Syne",Arial,sans-serif`;
+  ctx.fillStyle='rgba(0,0,0,0.45)'; ctx.fillText(copy,x,midY+8*SC);
+}
 
-  const out=document.createElement('canvas');
-  out.width=outW;
-  out.height=outH;
-  const ctx=out.getContext('2d');
-  ctx.fillStyle='#f4f1ec';
-  ctx.fillRect(0,0,outW,outH);
+async function buildTreeExportImageCanvas(bgColor='#f4f1ec'){
+  if(!document.querySelector('#tree-canvas .tnode')) return null;
+  return drawTreeToCanvas(bgColor);
+}
 
-  const safeW=outW - MARGIN*2;
-  const safeH=outH - WMARK - MARGIN*2;
-  const fit=Math.min(safeW/treeCv.width, safeH/treeCv.height);
-  const drawW=Math.round(treeCv.width * fit);
-  const drawH=Math.round(treeCv.height * fit);
-  const dx=Math.round((outW - drawW) / 2);
-  const dy=Math.round(MARGIN + Math.max(0, (safeH - drawH) / 2));
-
-  ctx.drawImage(treeCv,dx,dy,drawW,drawH);
-  drawExportWatermark(ctx,outW,outH,logoImg,WMARK);
-  return out;
+/* ===== EXPORT PNG ===== */
+async function exportPNG(){
+  if(!document.querySelector('#tree-canvas .tnode')){alert("Construisez d'abord un arbre.");return;}
+  try{
+    const canvas=drawTreeToCanvas('#f4f1ec');
+    if(!canvas){alert('Erreur : arbre vide.');return;}
+    const a=document.createElement('a');
+    a.download='arboria-arbre-syntaxique.png';
+    a.href=canvas.toDataURL('image/png'); a.click();
+  }catch(err){console.error('Export PNG:',err);alert('Erreur export: '+err.message);}
 }
 
 function printTree(){
-  const tc=document.getElementById('tree-canvas');
-  if(!tc){setHL('Erreur: éléments introuvables.');return;}
-  if(!document.querySelector('#tree-canvas .tnode')){setHL("Construisez d'abord un arbre.");return;}
-  setHL("Préparation de l'impression…");
-
+  if(!document.querySelector('#tree-canvas .tnode')){alert("Construisez d'abord un arbre.");return;}
   requestAnimationFrame(()=>requestAnimationFrame(async()=>{
     try{
-      const out=await buildTreeExportImageCanvas();
-      const dataUrl=out.toDataURL('image/png');
-      const PW=out.width/2;
-      const PH=out.height/2;
-
+      const canvas=drawTreeToCanvas('#ffffff');
+      if(!canvas){alert('Erreur : arbre vide.');return;}
+      const dataUrl=canvas.toDataURL('image/png');
+      const PW=canvas.width/2, PH=canvas.height/2;
       const usableW=1056-76, usableH=816-76;
       const printSc=Math.min(usableW/PW, usableH/PH);
       const dw=Math.round(PW*printSc), dh=Math.round(PH*printSc);
-
       const html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>Arboria</title>'
         +'<style>@page{size:letter landscape;margin:0}'
         +'*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}'
@@ -3236,86 +3295,12 @@ function printTree(){
         +'</style></head><body><img src="'+dataUrl+'">'
         +'<script>window.onload=function(){setTimeout(function(){window.print();setTimeout(function(){window.close();},400);},200);};<\/script>'
         +'</body></html>';
-
       const w=window.open('about:blank','_blank');
-      if(!w){setHL("Fenêtre bloquée - autorisez les pop-ups.");return;}
-      w.document.open();w.document.write(html);w.document.close();
-      setHL('Impression lancée.');
-    }catch(err){
-      setHL('Erreur impression: '+err.message);
-      console.error(err);
-    }
+      if(!w){alert('Fenêtre bloquée - autorisez les pop-ups.');return;}
+      w.document.open(); w.document.write(html); w.document.close();
+    }catch(err){console.error('Print:',err); alert('Erreur impression: '+err.message);}
   }));
 }
-
-
-/* ===== CALCUL DES BORNES RÉELLES DU SCHÉMA ===== */
-function computeTreeBounds(){
-  const metrics=getTreeExportMetrics();
-  return computeTreeBoundsFromMetrics(metrics);
-}
-
-/* ===== WATERMARK ===== */
-function drawExportWatermark(ctx,canvasWidth,canvasHeight,logoImg,stripHeightPx){
-  const SC=2;
-  const sh=stripHeightPx;
-  ctx.fillStyle='rgba(255,255,255,0.96)';
-  ctx.fillRect(0,canvasHeight-sh,canvasWidth,sh);
-  ctx.strokeStyle='rgba(0,0,0,0.08)';
-  ctx.lineWidth=1;
-  ctx.beginPath();
-  ctx.moveTo(0,canvasHeight-sh);
-  ctx.lineTo(canvasWidth,canvasHeight-sh);
-  ctx.stroke();
-  const title='ARBORIA';
-  const copy='© Kevin Tremblay · Tous droits réservés · Arboria 2026';
-  const rightPad=18*SC;
-  const midY=canvasHeight-sh+sh/2;
-  ctx.font=`bold ${13*SC}px "Syne",Arial,sans-serif`;
-  const titleW=ctx.measureText(title).width;
-  ctx.font=`${9*SC}px "Syne",Arial,sans-serif`;
-  const copyW=ctx.measureText(copy).width;
-  let logoW=0;
-  const logoH=22*SC;
-  if(logoImg&&logoImg.complete&&logoImg.naturalWidth>0){
-    logoW=Math.round(logoH*logoImg.naturalWidth/logoImg.naturalHeight);
-  }
-  const gap=8*SC;
-  const blockW=logoW+(logoW>0?gap:0)+Math.max(titleW,copyW);
-  let x=canvasWidth-rightPad-blockW;
-  if(logoW>0){
-    try{ctx.drawImage(logoImg,x,midY-logoH/2,logoW,logoH);}catch(e){}
-    x+=logoW+gap;
-  }
-  ctx.textAlign='left'; ctx.textBaseline='middle';
-  ctx.font=`bold ${13*SC}px "Syne",Arial,sans-serif`;
-  ctx.fillStyle='rgba(22,101,52,0.92)';
-  ctx.fillText(title,x,midY-7*SC);
-  ctx.font=`${9*SC}px "Syne",Arial,sans-serif`;
-  ctx.fillStyle='rgba(0,0,0,0.45)';
-  ctx.fillText(copy,x,midY+8*SC);
-}
-
-/* ===== EXPORT PNG ===== */
-async function exportPNG(){
-  const tc=document.getElementById('tree-canvas');
-  if(!tc){setHL('Erreur: éléments introuvables.');return;}
-  if(!document.querySelector('#tree-canvas .tnode')){setHL("Construisez d'abord un arbre.");return;}
-  setHL("Génération de l'image…");
-
-  try{
-    const out=await buildTreeExportImageCanvas();
-    const a=document.createElement('a');
-    a.download='arboria-arbre-syntaxique.png';
-    a.href=out.toDataURL('image/png');
-    a.click();
-    setHL('Image exportée.');
-  }catch(err){
-    setHL('Erreur export PNG: '+err.message);
-    console.error(err);
-  }
-}
-
 
 /* ===== VUE BOÎTES ===== */
 let _boitesShowClasses = false;
@@ -3516,7 +3501,19 @@ function applyEnc(t){
   let html='';
   if(t==='cq') html=`<span class="m-ins">C'est</span> <span class="m-hi">[ ${selTxt} ]</span> <span class="m-ins">qui</span> ${others.join(' ')}${S.punct}`;
   else if(t==='csq') html=`<span class="m-ins">Ce sont</span> <span class="m-hi">[ ${selTxt} ]</span> <span class="m-ins">qui</span> ${others.join(' ')}${S.punct}`;
-  else if(t==='np') html=S.words.map((w,i)=>S.selected.has(i)?`<span class="m-ins">ne</span> <span class="m-hi">${w.text}</span> <span class="m-ins">pas</span>`:w.text).join(' ')+S.punct;
+  else if(t==='np'){
+    const sIdx=getSel().filter(i=>!S.words[i]?.isPunct);
+    if(!sIdx.length){noSel('encadrement');return;}
+    const fi=sIdx[0],li=sIdx[sIdx.length-1];
+    html=S.words.map((w,i)=>{
+      if(!S.selected.has(i)||w.isPunct) return w.text;
+      let p='';
+      if(i===fi) p+=`<span class="m-ins">ne</span> `;
+      p+=`<span class="m-hi">${w.text}</span>`;
+      if(i===li) p+=` <span class="m-ins">pas</span>`;
+      return p;
+    }).join(' ')+S.punct;
+  }
   document.getElementById('mr-encadrement').innerHTML=html;
 }
 
@@ -3788,7 +3785,7 @@ document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='z'){
 // ══════════════════════════════════════════════════════
 //  MISC
 // ══════════════════════════════════════════════════════
-function setHL(msg){document.getElementById('hlabel').textContent=msg;}
+function setHL(msg){ /* status hidden - hbar simplified */ }
 function updTnoSelHint(){
   const n=S.tnoSel.size;
   if(!n){setHL('Cliquez sur P pour commencer.');return;}
@@ -3859,6 +3856,7 @@ function fitTree(){
   window._setPan=(x,y)=>{_panX=x;_panY=y;_applyTransform();};
   window._resetPan=()=>{_panX=0;_panY=0;_applyTransform();};
 
+  let _annotLastScale=0;
   function _applyTransform(){
     const tc=document.getElementById('tree-canvas');
     if(!tc)return;
@@ -3867,6 +3865,20 @@ function fitTree(){
     tc.style.transform=`translate(${_panX}px,${_panY}px) scale(${s})`;
     const zd=document.getElementById('zoom-display');
     if(zd) zd.textContent=Math.round(s*100)+'%';
+    // Resize annotation canvas bitmap to match visual resolution (prevents pixelation at high zoom)
+    if(Math.abs(s-_annotLastScale)>0.005){
+      _annotLastScale=s;
+      const ac2=document.getElementById('annot-canvas');
+      if(ac2&&ac2._naturalW){
+        const dpr=window.devicePixelRatio||1;
+        const nw=Math.round(ac2._naturalW*s*dpr);
+        const nh=Math.round(ac2._naturalH*s*dpr);
+        if(ac2.width!==nw||ac2.height!==nh){
+          ac2.width=nw; ac2.height=nh;
+          if(window._redrawAnnot&&window._annotPaths) window._redrawAnnot(window._annotPaths);
+        }
+      }
+    }
   }
   window._applyTreeTransform=_applyTransform;
 
@@ -4098,7 +4110,13 @@ function resetAll(){
   S.phrase='';S.punct='';S.punctChars=[];S.words=[];S.selected=new Set();S.history=[];
   S.tnoSel=new Set();S.pbSel=new Set();S.dragMotIds=null;S.dragWordIdx=null;
   document.getElementById('phraseInput').value='';
+  exitHighlightMode&&exitHighlightMode();
   closeCtx();clearAnnot();initRoot();renderWords();renderClasses();resetMR();
+  // Clear pbar-bottom display
+  const pwb=document.getElementById('pwords-bottom');
+  if(pwb) pwb.innerHTML='<span style="color:var(--t3);font-size:.77rem">Confirmez une phrase pour commencer.</span>';
+  const pb=document.getElementById('phrase-bottom');
+  if(pb) pb.innerHTML='<span class="pb-empty">La phrase reconstituée apparaîtra ici.</span>';
   setHL('Réinitialisé.');
 }
 
@@ -4162,6 +4180,273 @@ function setAnnotThickness(v){
 // ══════════════════════════════════════════════════════
 //  ONGLETS
 // ══════════════════════════════════════════════════════
+// ── Inline manipulation result card ──────────────────────────
+function showManipResult(htmlContent){
+  const card=document.getElementById('manip-result-card');
+  if(!card) return;
+  card.innerHTML=htmlContent+'<button onclick="document.getElementById(\'manip-result-card\').style.display=\'none\'" style="margin-left:8px;background:none;border:none;cursor:pointer;font-size:.9rem;color:var(--t3);flex-shrink:0;padding:2px 6px;border-radius:4px">✕</button>';
+  card.style.display='flex';
+  if(card._t) clearTimeout(card._t);
+  card._t=setTimeout(()=>{card.style.display='none';},9000);
+}
+
+// ── Left-menu manip: show submenu near button, apply inline ──
+function goManipMenu(ev,type){
+  ev.stopPropagation();
+  closeCtx(); // close any previously open submenu
+  const btn=ev.currentTarget||ev.target.closest('.mlbtn')||ev.target;
+  const r=btn.getBoundingClientRect();
+  const cx=r.right+8, cy=r.top;
+
+  // If no selection, fall back to switching tab
+  if(!S.selected.size && type!=='ajout'){
+    switchTab('manip');
+    setTimeout(()=>{const el=document.getElementById('mz-'+type);if(el)el.scrollIntoView({behavior:'smooth',block:'start'});},80);
+    return;
+  }
+
+  _ctxBlocked=true; setTimeout(()=>{_ctxBlocked=false;},120);
+
+  if(type==='encadrement'){
+    buildCtxAt('Encadrement',[
+      mkItemColor("C'est\u2026qui",'#f0fdf4','#86efac',()=>_applyEncInline('cq')),
+      mkItemColor('Ce sont\u2026qui','#f0fdf4','#86efac',()=>_applyEncInline('csq')),
+      mkItemColor('ne\u2026pas','#f0fdf4','#86efac',()=>_applyEncInline('np')),
+    ],cx,cy);
+  } else if(type==='remplacement'){
+    const prons=['il','elle','ils','elles','le','la','les','lui','leur','nous','vous','cela','y','en','on'];
+    const items=prons.map(p=>mkItemColor(p,'#fff','var(--mot-b)',()=>_applyReplInline(p)));
+    items.push(null);
+    items.push(mkItemColor('Autre\u2026','var(--s2)','var(--bd)',()=>{
+      const rep=prompt('Entrez le remplacement :');
+      if(rep&&rep.trim()) _applyReplInline(rep.trim());
+    }));
+    buildCtxAt('Remplacement',items,cx,cy,true);
+  } else if(type==='deplacement'){
+    buildCtxAt('D\u00e9placement',[
+      mkItemColor('\u2190 D\u00e9placer au d\u00e9but','#e0f2fe','#7dd3fc',()=>_applyDepInline('d')),
+      mkItemColor('\u2192 D\u00e9placer \u00e0 la fin','#e0f2fe','#7dd3fc',()=>_applyDepInline('f')),
+    ],cx,cy);
+  } else if(type==='effacement'){
+    _applyEffInline();
+  } else if(type==='ajout'){
+    _showAjoutPanel(btn,cx,cy);
+  }
+}
+
+function _encHtml(t){
+  if(!S.words.length||!S.selected.size) return null;
+  const selTxt=getSelTxt().join(' ');
+  const others=S.words.filter((_,i)=>!S.selected.has(i)&&!S.words[i]?.isPunct).map(w=>w.text);
+  const rest=others.join(' ')+(others.length?' ':'')+S.punct;
+  if(t==='cq') return `<span style="color:#166534;font-weight:700">C'est</span> <span style="background:#fef9c3;padding:1px 4px;border-radius:3px">[ ${selTxt} ]</span> <span style="color:#166534;font-weight:700">qui</span> ${rest}`;
+  if(t==='csq') return `<span style="color:#166534;font-weight:700">Ce sont</span> <span style="background:#fef9c3;padding:1px 4px;border-radius:3px">[ ${selTxt} ]</span> <span style="color:#166534;font-weight:700">qui</span> ${rest}`;
+  if(t==='np'){
+    const sIdx=getSel().filter(i=>!S.words[i]?.isPunct);
+    if(!sIdx.length) return null;
+    const fi=sIdx[0], li=sIdx[sIdx.length-1];
+    const parts=S.words.map((w,i)=>{
+      if(!S.selected.has(i)||w.isPunct) return w.text;
+      let p='';
+      if(i===fi) p+=`<span style="color:#166534;font-weight:700">ne</span> `;
+      p+=`<span style="background:#fef9c3;padding:1px 3px;border-radius:3px">${w.text}</span>`;
+      if(i===li) p+=` <span style="color:#166534;font-weight:700">pas</span>`;
+      return p;
+    });
+    return parts.join(' ')+S.punct;
+  }
+  return null;
+}
+
+function _applyEncInline(t){
+  const h=_encHtml(t); if(!h) return;
+  showManipResult(h);
+  // Apply to tree bubbles if all selected words are placed
+  const inTree=getWordsInTree();
+  const selWords=getSelTxt();
+  if(selWords.length&&selWords.every(w=>inTree.has(w))){
+    // Visual highlight in tree - just show outline temporarily
+    selWords.forEach(word=>{
+      Object.values(S.nodes).forEach(n=>{
+        if(n.kind==='m'&&n.mot===word){
+          const el=document.getElementById('nd-'+n.id);
+          if(el){
+            el.style.outline='3px solid #fbbf24';
+            el.style.background='#fef9c3';
+            setTimeout(()=>{el.style.outline='';el.style.background='';},3000);
+          }
+        }
+      });
+    });
+  }
+}
+function _applyReplInline(rep){
+  if(!S.words.length||!S.selected.size) return;
+  const idx=getSel();
+  const isStart=idx[0]===0||S.selected.has(0);
+  const repDisplay=isStart?capitalFirst(rep):rep;
+  let done=false;
+  const parts=S.words.map((w,i)=>{
+    if(S.selected.has(i)){
+      if(!done){done=true;return`<span style="color:#166534;font-weight:700;background:#dcfce7;padding:1px 4px;border-radius:3px">${repDisplay}</span>`;}
+      return null;
+    }
+    return w.text;
+  }).filter(p=>p!==null);
+  if(parts.length&&typeof parts[0]==='string') parts[0]=capitalFirst(parts[0]);
+  showManipResult(parts.join(' ')+S.punct);
+}
+function _applyDepInline(pos){
+  if(!S.words.length||!S.selected.size) return;
+  const selTxt=getSelTxt();
+  const rest=S.words.filter((_,i)=>!S.selected.has(i)&&!S.words[i]?.isPunct).map(w=>w.text);
+  let arr;
+  if(pos==='d') arr=[...selTxt.map(t=>`<span style="background:#fef9c3;padding:1px 3px;border-radius:3px">${t}</span>`),...rest.map((t,i)=>i===0?lowerFirst(t):t)];
+  else arr=[...rest,...selTxt.map(t=>`<span style="background:#fef9c3;padding:1px 3px;border-radius:3px">${t}</span>`)];
+  if(arr.length&&typeof arr[0]==='string') arr[0]=capitalFirst(arr[0]);
+  showManipResult(arr.join(' ')+S.punct);
+}
+function _applyEffInline(){
+  if(!S.words.length||!S.selected.size) return;
+  const kept=S.words.map((w,i)=>S.selected.has(i)?`<span style="text-decoration:line-through;color:var(--t3)">${w.text}</span>`:w.text);
+  const firstVisIdx=S.words.findIndex((_,i)=>!S.selected.has(i));
+  if(firstVisIdx>0&&S.words[firstVisIdx]) kept[firstVisIdx]=capitalFirst(S.words[firstVisIdx].text);
+  showManipResult(kept.join(' ')+S.punct);
+}
+function _applyAjoutInline(word,pos){
+  if(!S.words.length) return;
+  const idx=getSel(); let parts;
+  const tag=w=>`<span style="color:#166534;font-weight:700;background:#dcfce7;padding:1px 4px;border-radius:3px">${w}</span>`;
+  if(!idx.length){
+    parts=[...S.words.map(w=>w.text), tag(word)];
+  } else {
+    const f=idx[0], l=idx[idx.length-1];
+    parts=S.words.map((w,i)=>{
+      if(pos==='av'&&i===f) return tag(word)+' '+w.text;
+      if(pos==='ap'&&i===l) return w.text+' '+tag(word);
+      return w.text;
+    });
+  }
+  if(parts.length&&typeof parts[0]==='string') parts[0]=capitalFirst(parts[0]);
+  showManipResult(parts.join(' ')+S.punct);
+}
+
+// ── Highlight subtree ────────────────────────────────────────
+let _highlightRoot=null;
+function getSubtreeIds(nodeId){
+  const ids=new Set();
+  function walk(id){if(!S.nodes[id])return;ids.add(id);S.nodes[id].children.forEach(c=>walk(c));}
+  walk(nodeId); return ids;
+}
+function highlightSubtree(nodeId){
+  _highlightRoot=nodeId;
+  const subtree=getSubtreeIds(nodeId);
+  document.querySelectorAll('#tree-canvas .tnode').forEach(el=>{
+    const id=el.id.replace('nd-','');
+    el.style.opacity=subtree.has(id)?'1':'0.1';
+    el.style.filter=subtree.has(id)?'':'grayscale(1)';
+  });
+  const svg=document.getElementById('tree-svg');
+  if(svg) svg.style.opacity='0.2';
+  const exitBtn=document.getElementById('highlight-exit-btn');
+  if(exitBtn) exitBtn.style.display='flex';
+  // Auto zoom+fit on subtree
+  _zoomToSubtree(subtree);
+}
+function _zoomToSubtree(subtree){
+  const PAD=48;
+  const nodes=[...subtree].map(id=>S.nodes[id]).filter(n=>n&&n.x!=null&&n.y!=null);
+  if(!nodes.length) return;
+  const outer=document.getElementById('tree-outer');
+  if(!outer) return;
+  // Measure node DOM sizes
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  nodes.forEach(n=>{
+    const el=document.getElementById('nd-'+n.id);
+    const hw=el?(el.offsetWidth/2):36, hh=el?(el.offsetHeight/2):22;
+    minX=Math.min(minX,n.x-hw); maxX=Math.max(maxX,n.x+hw);
+    minY=Math.min(minY,n.y-hh); maxY=Math.max(maxY,n.y+hh);
+  });
+  const cw=maxX-minX, ch=maxY-minY;
+  if(cw<=0||ch<=0) return;
+  const ow=outer.clientWidth-PAD*2, oh=outer.clientHeight-PAD*2;
+  const sc=Math.max(0.12,Math.min(3.0, Math.min(ow/cw, oh/ch)));
+  S.treeScale=sc;
+  const panX=(outer.clientWidth-cw*sc)/2-minX*sc;
+  const panY=(outer.clientHeight-ch*sc)/2-minY*sc;
+  if(window._setPan) window._setPan(panX,panY);
+  const zd=document.getElementById('zoom-display');
+  if(zd) zd.textContent=Math.round(sc*100)+'%';
+  if(window._applyTreeTransform) window._applyTreeTransform();
+}
+function exitHighlightMode(){
+  _highlightRoot=null;
+  document.querySelectorAll('#tree-canvas .tnode').forEach(el=>{el.style.opacity='';el.style.filter='';});
+  const svg=document.getElementById('tree-svg'); if(svg) svg.style.opacity='';
+  const exitBtn=document.getElementById('highlight-exit-btn'); if(exitBtn) exitBtn.style.display='none';
+  // Restore full tree fit
+  requestAnimationFrame(()=>computeAndApplyScale(true));
+}
+// Re-apply highlight after re-render
+
+// ── Inline Ajout panel (replaces prompt()) ────────────────
+function _showAjoutPanel(anchorBtn,cx,cy){
+  // Remove any existing panel
+  const existing=document.getElementById('ajout-inline-panel');
+  if(existing) existing.remove();
+  const panel=document.createElement('div');
+  panel.id='ajout-inline-panel';
+  panel.style.cssText='position:fixed;background:var(--sf);border:1.5px solid var(--bd);border-radius:10px;padding:10px;z-index:1100;box-shadow:0 6px 20px rgba(0,0,0,.18);min-width:240px;display:flex;flex-direction:column;gap:7px;';
+  panel.style.left=cx+'px';panel.style.top=cy+'px';
+  panel.innerHTML=`
+    <div style="font-size:.67rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);border-bottom:1px solid var(--bd);padding-bottom:5px;">Ajout</div>
+    <input id="ajout-panel-input" type="text" placeholder="Mot ou groupe à ajouter…"
+      style="padding:7px 9px;border-radius:6px;border:1.5px solid var(--bd);font-family:'JetBrains Mono',monospace;font-size:.82rem;outline:none;width:100%;box-sizing:border-box;"
+      onfocus="this.style.borderColor='var(--ac)'" onblur="this.style.borderColor='var(--bd)'">
+    ${S.selected.size?`
+    <div style="font-size:.65rem;color:var(--t3)">Position :</div>
+    <div style="display:flex;gap:5px;">
+      <button onclick="var w=document.getElementById('ajout-panel-input').value.trim();if(w){_applyAjoutInline(w,'av');document.getElementById('ajout-inline-panel').remove();}" 
+        style="flex:1;padding:5px 8px;border-radius:6px;border:1.5px solid var(--bd);background:var(--s2);font-family:'Syne',sans-serif;font-size:.72rem;font-weight:700;cursor:pointer;">Avant</button>
+      <button onclick="var w=document.getElementById('ajout-panel-input').value.trim();if(w){_applyAjoutInline(w,'ap');document.getElementById('ajout-inline-panel').remove();}"
+        style="flex:1;padding:5px 8px;border-radius:6px;border:none;background:var(--ac);color:white;font-family:'Syne',sans-serif;font-size:.72rem;font-weight:700;cursor:pointer;">Après</button>
+    </div>`:`
+    <div style="display:flex;gap:5px;">
+      <button onclick="document.getElementById('ajout-inline-panel').remove();"
+        style="flex:1;padding:5px 8px;border-radius:6px;border:1.5px solid var(--bd);background:var(--s2);font-family:'Syne',sans-serif;font-size:.72rem;font-weight:700;cursor:pointer;">Annuler</button>
+      <button onclick="var w=document.getElementById('ajout-panel-input').value.trim();if(w){_applyAjoutInline(w,'f');document.getElementById('ajout-inline-panel').remove();}"
+        style="flex:1;padding:5px 8px;border-radius:6px;border:none;background:var(--ac);color:white;font-family:'Syne',sans-serif;font-size:.72rem;font-weight:700;cursor:pointer;">Ajouter</button>
+    </div>`}
+  `;
+  document.body.appendChild(panel);
+  // Adjust if offscreen
+  requestAnimationFrame(()=>{
+    const r=panel.getBoundingClientRect();
+    if(r.right>window.innerWidth-8) panel.style.left=(cx-r.width-12)+'px';
+    if(r.bottom>window.innerHeight-8) panel.style.top=(cy-r.height)+'px';
+    const inp=document.getElementById('ajout-panel-input'); if(inp) inp.focus();
+  });
+  // Close on outside click
+  setTimeout(()=>{
+    function outsideClick(e){
+      if(!panel.contains(e.target)){panel.remove();document.removeEventListener('click',outsideClick);}
+    }
+    document.addEventListener('click',outsideClick);
+  },0);
+  // Close on Enter key
+  panel.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){panel.remove();}
+    if(e.key==='Enter'){
+      const w=document.getElementById('ajout-panel-input')?.value.trim();
+      if(w){
+        if(S.selected.size) _applyAjoutInline(w,'ap');
+        else _applyAjoutInline(w,'f');
+        panel.remove();
+      }
+    }
+  });
+}
+
 function switchTab(name){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.tcontent').forEach(t=>{t.classList.remove('active');t.style.display='none';});
@@ -4292,6 +4577,82 @@ showDiff(1, document.querySelector('.diff-btn[data-diff="1"]'));
 // (lasso-hint removed)
 
 
+// ── À propos modal ──────────────────────────────────────────────
+function showAbout(){
+  let m=document.getElementById('about-modal');
+  if(m){m.style.display='flex';return;}
+  m=document.createElement('div');
+  m.id='about-modal';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:3000;display:flex;align-items:center;justify-content:center;';
+  m.innerHTML=`
+  <div style="background:var(--sf);border-radius:16px;padding:28px 32px;max-width:480px;width:90%;box-shadow:0 24px 60px rgba(0,0,0,.3);font-family:'Syne',sans-serif;position:relative;">
+    <div style="font-size:1.3rem;font-weight:800;color:#166534;letter-spacing:.05em;margin-bottom:4px;">ARBORIA</div>
+    <div style="font-size:.7rem;color:var(--t3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:16px;">Arbre syntaxique interactif</div>
+    <p style="font-size:.83rem;color:var(--t2);line-height:1.7;margin-bottom:16px;">
+      Arboria est un outil pédagogique interactif d'analyse syntaxique en arbre. Il permet de manipuler des phrases, de construire leur structure syntaxique, de visualiser les fonctions et les groupes, et d'explorer diverses manipulations syntaxiques dans un environnement clair, moderne et intuitif.
+    </p>
+    <p style="font-size:.75rem;color:var(--t3);margin-bottom:20px;">Conforme à la grammaire nouvelle · Créé par Kevin Tremblay, Technopédagogue, Cardinal-Roy</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button onclick="loadExampleTree()" style="flex:1;padding:9px 14px;border-radius:8px;border:none;background:var(--ac);color:white;font-family:'Syne',sans-serif;font-weight:700;font-size:.76rem;cursor:pointer;">🌳 Charger l'exemple</button>
+      <button onclick="document.getElementById('about-modal').style.display='none'" style="padding:9px 18px;border-radius:8px;border:1.5px solid var(--bd);background:var(--s2);font-family:'Syne',sans-serif;font-weight:700;font-size:.76rem;cursor:pointer;color:var(--t2);">Fermer</button>
+    </div>
+  </div>`;
+  m.addEventListener('click',e=>{if(e.target===m)m.style.display='none';});
+  document.body.appendChild(m);
+}
+
+// ── Example tree loader ──────────────────────────────────────────
+function loadExampleTree(){
+  const hasWork=S.phrase||(S.nodes&&Object.values(S.nodes).some(n=>n.children&&n.children.length>0));
+  if(hasWork){
+    if(!confirm('Remplacer la phrase et l\'arbre actuels par l\'exemple ? Cette action peut être annulée avec Ctrl+Z.')) return;
+  }
+  document.getElementById('about-modal').style.display='none';
+  snap('example');
+  // Phrase: "Les élèves de la classe analysent."
+  const exPhrase="Les élèves de la classe analysent.";
+  document.getElementById('phraseInput').value=exPhrase;
+  S.phrase=exPhrase; S.punct='.';
+  S.words=[
+    {text:'Les',isPunct:false,cls:'Dét.',idx:0},
+    {text:'élèves',isPunct:false,cls:'N',idx:1},
+    {text:'de',isPunct:false,cls:'Prép.',idx:2},
+    {text:'la',isPunct:false,cls:'Dét.',idx:3},
+    {text:'classe',isPunct:false,cls:'N',idx:4},
+    {text:'analysent',isPunct:false,cls:'V',idx:5},
+  ];
+  S.punctChars=[];S.selected=new Set();S.history=[];
+  S.tnoSel=new Set();S.pbSel=new Set();S.dragMotIds=null;S.coordRoots=null;
+  S.nid=0;S.nodes={};
+  if(window._resetPan) window._resetPan();
+  // Build tree: P → Sujet(GN) → classe(N)→[Les,élèves,de,la,classe], Prédicat(GV)→classe(V)→analysent
+  function mkN(kind,opts,parentId){
+    const id='n'+(++S.nid);
+    S.nodes[id]={id,kind,...opts,parentId,children:[],depth:0,x:0,y:0,mp:false,_manualPos:false};
+    if(parentId&&S.nodes[parentId]) S.nodes[parentId].children.push(id);
+    return id;
+  }
+  const rootId='n'+(++S.nid);
+  S.nodes[rootId]={id:rootId,kind:'p',parentId:null,children:[],depth:0,x:0,y:0,mp:false,_manualPos:false,label:'P',coordDone:false};
+  S.rootId=rootId;
+  // Sujet: GN
+  const fgSuj=mkN('fg',{fn:'Sujet',grp:'GN',fnCls:'fn-s',grpCls:'gk-gn'},rootId);
+  // GN children: Les, élèves, GPrép(de la classe)
+  const cLes=mkN('c',{cls:'Dét.'},fgSuj); mkN('m',{mot:'Les',origIdx:0},cLes);
+  const cEleves=mkN('c',{cls:'N'},fgSuj); mkN('m',{mot:'élèves',origIdx:1},cEleves);
+  // GPrép sous GN
+  const fgGPrep=mkN('g',{grp:'GPrép',grpCls:'gk-gprep'},fgSuj);
+  const cDe=mkN('c',{cls:'Prép.'},fgGPrep); mkN('m',{mot:'de',origIdx:2},cDe);
+  const fgGN2=mkN('g',{grp:'GN',grpCls:'gk-gn'},fgGPrep);
+  const cLa=mkN('c',{cls:'Dét.'},fgGN2); mkN('m',{mot:'la',origIdx:3},cLa);
+  const cClasse=mkN('c',{cls:'N'},fgGN2); mkN('m',{mot:'classe',origIdx:4},cClasse);
+  // Prédicat: GV
+  const fgPred=mkN('fg',{fn:'Prédicat',grp:'GV',fnCls:'fn-p',grpCls:'gk-gv'},rootId);
+  const cAnal=mkN('c',{cls:'V'},fgPred); mkN('m',{mot:'analysent',origIdx:5},cAnal);
+  S.treeScale=1;
+  renderWords();renderTree();renderClasses();
+  setHL("Exemple chargé. Arbre entièrement modifiable.");
+}
 </script>
 </body>
 </html>
