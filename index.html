@@ -99,7 +99,7 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:.59rem;background:var(--s2)
 .tcontent{display:none;flex:1;overflow:hidden;flex-direction:column}
 .tcontent.active{display:flex}
 /* TREE */
-#tree-outer{flex:1;overflow:hidden;position:relative;background:var(--bg);cursor:default;}
+#tree-outer{flex:1;overflow:hidden;position:relative;background:var(--bg);cursor:default;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
 #tree-outer.panning{cursor:grabbing;}
 #tree-outer.hand-mode{cursor:grab!important;}
 #tree-outer.hand-mode.panning{cursor:grabbing!important;}
@@ -130,7 +130,7 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:.59rem;background:var(--s2)
   display:flex;flex-direction:column;align-items:center;gap:1px;
   border:2px solid transparent;min-width:72px;max-width:160px;text-align:center;
   transition:box-shadow .12s;touch-action:manipulation;
-  overflow:visible;
+  overflow:visible;-webkit-user-select:none;user-select:none;
 }
 .tnode:hover{box-shadow:var(--sh2)}
 .tnode.drag-over{outline:3px dashed var(--ac);outline-offset:3px}
@@ -156,6 +156,8 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:.59rem;background:var(--s2)
 .nk-m.mot-sel{background:#fef9c3;border-color:#fbbf24;color:#92400e;box-shadow:0 0 0 3px #fcd34d44}
 .nk-m.mot-dragging{opacity:.4}
 .nk-intro{background:var(--gv-bg);color:var(--gv-t);border-color:var(--gv-b);border-style:solid}
+/* Ampoule mode assisté */
+.assisted-hint{cursor:pointer;font-size:.85rem;margin-left:2px;display:inline-block;line-height:1;vertical-align:middle;}
 /* text inside nodes */
 .node-fn{font-size:.68rem;font-weight:800;letter-spacing:.04em;line-height:1;margin-bottom:1px}
 .node-grp{font-size:.8rem;line-height:1.2}
@@ -185,6 +187,16 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:.59rem;background:var(--s2)
 .ctx-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;border:1.5px solid #ccc}
 .ctx-sep{height:1px;background:var(--bd);margin:3px 0}
 /* DRAG GHOST */
+.node-order-warn{
+  position:absolute;top:-8px;right:16px;
+  width:18px;height:18px;border-radius:50%;
+  background:#f59e0b;color:white;border:2px solid white;
+  font-size:10px;font-weight:800;line-height:1;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  z-index:25;box-shadow:0 1px 4px rgba(0,0,0,.25);
+  animation:warnPop .25s ease;
+}
+@keyframes warnPop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
 #drag-ghost{position:fixed;pointer-events:none;z-index:2000;background:var(--ph-bg);color:white;padding:3px 9px;border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:.83rem;box-shadow:var(--sh2);display:none;white-space:nowrap}
 /* SCROLL CONTENT */
 .scroll-content{flex:1;overflow-y:auto;padding:14px}
@@ -246,26 +258,27 @@ body.fs-on .fs-hide{display:none!important;}
 
 .fs-col{display:flex;flex-direction:column;flex:1;min-width:0;min-height:0;overflow:hidden;}
 .boites-toolbar{padding:6px 14px;display:flex;align-items:center;justify-content:space-between;background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0;gap:8px;font-size:.67rem;color:var(--t3);flex-wrap:wrap}
-#boites-outer{flex:1;overflow:auto;padding:40px 36px 48px;background:#fff;}
+#boites-outer{flex:1;overflow:hidden;padding:0;background:#fff;position:relative;}
 #boites-canvas{display:block;min-width:100%;font-family:'Syne',sans-serif;background:#fff;}
 
 /* ── BOÎTES LINÉAIRES ─────────────────────────────────
-   DOM/CSS approach: boxes use flexbox, words bottom-align
+   Uses CSS table for universal word-baseline alignment.
+   All words share a single common bottom row regardless of
+   subtree depth. Boxes grow UPWARD from that baseline.
 ──────────────────────────────────────────────────────── */
-/* P-level wrapper */
-.bxw-p{display:inline-flex;flex-direction:column;align-items:center;margin:0 20px;}.bx-coord-row .bxw-p{margin:0;}
+/* Top-level P wrapper */
+.bxw-p{display:inline-table;table-layout:fixed;border-collapse:collapse;margin:0 20px;}.bx-coord-row .bxw-p{margin:0;}
 .bxw-p-lbl{font-size:.72rem;font-weight:800;letter-spacing:.04em;text-align:center;padding:0 0 6px;color:#111;}
-/* fg wrapper: fn label above, border, grp label BELOW OUTSIDE */
-.bxw-fg{display:inline-flex;flex-direction:column;align-items:center;gap:0;position:relative;margin-top:22px;}
+/* Each fg/g/psub becomes a table cell that sits on the common baseline */
+/* Use flex-column with bottom alignment so children share the same word row */
+/* (rule defined below near .bxw-p-inner) */
 .bxw-fn{font-size:.72rem;font-weight:700;text-align:center;padding:0 0 4px;color:#111;white-space:nowrap;position:absolute;bottom:100%;left:50%;transform:translateX(-50%);white-space:nowrap;}
-.bxw-border{border:2px solid #111;display:inline-flex;flex-direction:column;align-items:stretch;background:#fff;}
-.bxw-border-dashed{border-style:dashed;border-color:#555;}
-/* The inner row of children — bottom edges all aligned = common word baseline */
-.bxw-inner{display:flex;flex-direction:row;align-items:flex-end;gap:28px;padding:20px 22px 16px;flex-wrap:nowrap;background:#fff;}
-/* Group label outside below — absolute so it doesn't affect height */
+.bxw-border{border:2px solid #111;display:flex;flex-direction:column;align-items:stretch;background:#fff;flex:1;}
+.bxw-border-dashed{border-style:solid;border-color:#555;}
+/* Group label outside below */
 .bxw-grp{font-size:.68rem;font-weight:600;text-align:center;padding:4px 4px 0;color:#333;white-space:nowrap;position:absolute;top:100%;left:50%;transform:translateX(-50%);}
-/* Words */
-.bx-word-wrap{display:inline-flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;padding:0 6px;justify-content:center;}
+/* Words — always align self to flex-end so they reach the bottom row */
+.bx-word-wrap{display:inline-flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;padding:0 6px;justify-content:flex-end;align-self:flex-end;}
 .bx-cls-tag{font-size:.52rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#888;border:1px solid #ccc;border-radius:2px;padding:1px 5px;background:#f5f5f5;cursor:pointer;white-space:nowrap;}
 .bx-cls-tag:hover{background:#e0e0e0;border-color:#888;color:#333;}
 .bx-word{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:600;color:#111;padding:0 6px;cursor:pointer;white-space:nowrap;line-height:1.6;}
@@ -274,19 +287,26 @@ body.fs-on .fs-hide{display:none!important;}
 .bx-intro-seg{display:inline-flex;flex-direction:column;align-items:center;padding:0 16px;align-self:flex-end;gap:4px;}
 .bx-intro-label{font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#999;}
 .bx-intro-mot{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:#555;border:1.5px solid #aaa;border-radius:2px;padding:4px 10px;}
-/* coord row */
-.bx-coord-row{display:flex;flex-wrap:nowrap;gap:32px;align-items:stretch;padding:20px;overflow-x:auto}
-.bxw-coord-col{display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:6px;padding:0 8px;align-self:stretch}
+/* coord row — align-items:flex-end so all P branches share the same word baseline */
+.bx-coord-row{display:flex;flex-wrap:nowrap;gap:32px;align-items:flex-end;padding:20px;overflow-x:auto}
+.bxw-coord-col{display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:6px;padding:0 8px;align-self:flex-end}
 .bxw-coord-lbl{font-size:.52rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#999;white-space:nowrap;padding-top:4px}
 .bxw-coord-mot{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:#555;border:1.5px solid #aaa;border-radius:4px;padding:6px 14px;background:#fff;white-space:nowrap}
+/* P wrapper inner row — flex-end is the key: ALL branches stretch down to the same word baseline */
+.bxw-p-inner{display:flex;flex-direction:row;align-items:flex-end;gap:20px;justify-content:center;}
+/* fg must also be flex-end so it contributes to the common baseline */
+.bxw-fg{display:inline-flex;flex-direction:column;align-items:stretch;justify-content:flex-end;gap:0;position:relative;margin-top:22px;align-self:flex-end;}
+/* The inner row of each box — align-items:flex-end propagates the baseline down through all levels */
+.bxw-inner{display:flex;flex-direction:row;align-items:flex-end;gap:28px;padding:20px 22px 16px;flex-wrap:nowrap;background:#fff;flex:1;min-height:0;}
 
 /* ── ZOOM CONTROLS ─────────────────────────────────── */
 #tree-zoom-controls{
-  position:absolute;bottom:10px;right:10px;
+  position:absolute;top:10px;left:10px;bottom:auto;right:auto;
   display:flex;flex-direction:row;gap:3px;align-items:center;
   z-index:100;background:var(--sf);border:1px solid var(--bd);
   border-radius:8px;padding:3px 6px;box-shadow:var(--sh);
   pointer-events:auto;
+  transition:opacity .2s;
 }
 #zoom-display{font-size:.65rem;font-weight:700;color:var(--t2);min-width:32px;text-align:center;}
 .zoom-btn{
@@ -297,6 +317,7 @@ body.fs-on .fs-hide{display:none!important;}
   transition:all .12s;touch-action:manipulation;pointer-events:auto;
 }
 .zoom-btn:hover{border-color:var(--ac);color:var(--ac);background:var(--abg);}
+.zoom-btn.sel-active{background:var(--ac)!important;border-color:var(--ac)!important;color:white!important;}
 
 
 .hbar{padding:4px 14px;background:var(--sf);border-top:1px solid var(--bd);display:flex;align-items:center;gap:7px;font-size:.67rem;color:var(--t3);flex-shrink:0}
@@ -360,8 +381,8 @@ body.fs-on .fs-hide{display:none!important;}
         <div onclick="exportPNG();toggleExportMenu()" style="padding:7px 10px;border-radius:5px;cursor:pointer;font-size:.76rem;color:var(--t2);display:flex;align-items:center;gap:6px" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background=''">📷 En image (PNG)</div>
       </div>
     </div>
-    <button class="hbtn" onclick="showAbout()">ℹ️ À propos</button>
     <button class="hbtn red" onclick="resetAll()">🗑 Tout effacer</button>
+    <button class="hbtn" onclick="showAbout()">ℹ️ À propos</button>
   </div>
 </header>
 
@@ -476,6 +497,7 @@ body.fs-on .fs-hide{display:none!important;}
             <button class="hbtn fs-only" onclick="undo()" style="white-space:nowrap">↩ Annuler</button>
             <button class="pabtn" onclick="clearSel()" title="Désélectionner tout">✕ Désélect.</button>
             <button class="hbtn fs-hide" id="pbarPosBtn" onclick="togglePbarPosition()" title="Basculer la barre de phrase haut/bas" style="font-size:.72rem">☰ Phrase ↕</button>
+            <button class="hbtn" id="assistedModeBtn" onclick="toggleAssistedMode()" title="Analyse assistée : OFF (cliquer pour activer)" style="font-size:.72rem">💡 Assisté : OFF</button>
             <button class="hbtn" onclick="toggleFullscreen()" id="fs-btn" title="Plein écran">⛶ Plein écran</button>
             <button class="hbtn red" onclick="clearTree()">🗑 Effacer l'arbre</button>
             <span class="fs-only credits" style="font-size:.58rem;color:var(--t3);margin-left:4px">Créé par Kevin Tremblay · Arboria 2026</span>
@@ -505,6 +527,7 @@ body.fs-on .fs-hide{display:none!important;}
           </div>
           <div id="rect-sel-overlay"></div>
           <button id="highlight-exit-btn" onclick="exitHighlightMode()" style="display:none;position:absolute;top:12px;right:12px;z-index:200;background:#ef4444;color:white;border:none;border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-weight:700;font-size:.78rem;cursor:pointer;align-items:center;gap:5px;box-shadow:0 4px 12px rgba(0,0,0,.25);touch-action:manipulation">✕ Quitter la mise en évidence</button>
+          <button id="fs-exit-btn" onclick="toggleFullscreen()" style="display:none;position:absolute;top:12px;right:12px;z-index:201;background:#ef4444;color:white;border:none;border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-weight:700;font-size:.78rem;cursor:pointer;align-items:center;gap:5px;box-shadow:0 4px 12px rgba(0,0,0,.25);touch-action:manipulation">✕ Quitter le mode plein écran</button>
           <!-- Zoom controls -->
           <div id="tree-zoom-controls">
             <button class="zoom-btn" id="handModeBtn" onclick="toggleHandMode()" title="Outil main — déplacer la vue" style="font-size:1rem">✋</button>
@@ -517,9 +540,9 @@ body.fs-on .fs-hide{display:none!important;}
         </div>
         <div id="phrase-bottom"><span class="pb-empty">La phrase reconstituée apparaîtra ici.</span></div>
         <div class="pbar" id="pbar-bottom" style="border-top:1px solid var(--bd);border-bottom:none;min-height:0;padding:6px 8px 6px 14px;display:flex;flex-direction:row;align-items:center;gap:6px;">
-          <div class="pwords" id="pwords-bottom" style="flex:1;min-height:32px;padding:4px 4px;"><span style="color:var(--t3);font-size:.77rem">Confirmez une phrase pour commencer.</span></div>
+          <div class="pwords" id="pwords-bottom" style="flex:1;min-height:32px;padding:4px 18px;justify-content:center;"><span style="color:var(--t3);font-size:.77rem">Confirmez une phrase pour commencer.</span></div>
           <div style="display:flex;flex-direction:row;align-items:center;gap:4px;flex-shrink:0;">
-            <div class="selinfo" id="selinfo-bottom" style="font-size:.65rem;white-space:nowrap">Sél. : <strong id="seltext-bottom">—</strong>&nbsp;·&nbsp;<span id="selcount-bottom">0</span></div>
+            <button class="pabtn" id="addAllWordsBtn" onclick="addAllWordsToTree()" title="Afficher tous les mots dans l'arbre" style="white-space:nowrap">⬇ Afficher tous les mots</button>
             <button class="pabtn" onclick="clearSel()" title="Désélectionner tout" style="white-space:nowrap">✕ Désélect.</button>
             <button class="pabtn" onclick="undo()" title="Annuler (Ctrl+Z)" style="white-space:nowrap">↩ Annuler</button>
           </div>
@@ -544,6 +567,7 @@ body.fs-on .fs-hide{display:none!important;}
           <span style="font-size:.67rem;color:var(--t3)">Vue en boîtes imbriquées · Cliquer un mot pour définir sa classe</span>
           <div style="display:flex;gap:6px;align-items:center">
             <button class="hbtn" id="bx-cls-toggle" onclick="toggleBoitesClasses()">👁 Afficher les classes</button>
+            <button class="hbtn" onclick="exportBoitesPDF()">🖨️ Exporter PDF</button>
             <button class="hbtn" onclick="exportBoitesPNG()">⬇ Exporter PNG</button>
           </div>
         </div>
@@ -661,16 +685,18 @@ const GY = 92;
 const TOP_Y = 70;
 
 const ALL_CLASSES = ['Dét.','Nom','Adj.','Verbe','Pron.','Adv.','Prép.','Conj.','Interj.'];
-const CLS_CB = {'Nom':'Nom','Dét.':'Det','Adj.':'Adj','Verbe':'Verbe','Pron.':'Pron','Adv.':'Adv','Prép.':'Prep','Conj.':'Conj','Interj.':'Interj','?':'_'};
+const CLS_CB = {'Nom':'Nom','Dét.':'Det','Adj.':'Adj','Verbe':'Verbe','Pron.':'Pron','Adv.':'Adv','Prép.':'Prep','Conj.':'Conj','Interj.':'Interj','Subordonnant':'Conj','?':'_'};
 
 const GRP4FN = {
   'Sujet':['GN','GVinf.','Pron.','Psub compl.','Psub rel.'],
   'Prédicat':['GV','GAdj','GN','GPrép','Psub compl.'],
-  'Compl. de P':['GN','GAdv','GPrép','GVinf.','GAdj','Psub compl.','Psub rel.'],
+  'Compl. de P':['GN','GAdv','GPrép','GVinf.','GAdj','Psub compl.','Psub rel.','Psub. Compl. de P'],
   'Compl. du N':['GPrép','GAdj','Psub rel.'],
   'CD':['GN','Psub compl.','GVinf.'],
   'CI':['GPrép','Psub compl.'],
   'Modificateur':['GAdv','GAdj','GPrép'],
+  'Att. du sujet':['GAdj','GN','GPrép'],
+  'Att. du CD':['GAdj','GN','GPrép'],
   'default':['GN','GV','GPrép','GAdj','GAdv'],
 };
 const CLS4GRP = {
@@ -681,19 +707,23 @@ const CLS4GRP = {
   'GAdv':['Adv.','Prép.'],
   'GVinf.':['Verbe','Nom','Dét.','Adv.'],
   'Pron.':['Pron.'],
+  'Psub rel.':['Dét.','Nom','Verbe','Adj.','Pron.','Adv.','Prép.','Subordonnant','Pron. relatif'],
+  'Psub compl.':['Dét.','Nom','Verbe','Adj.','Pron.','Adv.','Prép.','Subordonnant'],
+  'Psub. Compl. de P':['Dét.','Nom','Verbe','Adj.','Pron.','Adv.','Prép.','Subordonnant'],
   'default':['Dét.','Nom','Verbe','Adj.','Pron.','Adv.','Prép.','Conj.','Interj.'],
 };
 const SUBGRP4GRP = {
-  'GN':['GPrép','GAdj','GAdv','Psub rel.'],
+  'GN':['GPrép','GAdj','GAdv','Psub rel.','Psub compl.','Psub. Compl. de P'],
   'GV':['GN','GPrép','GAdj','GAdv','GVinf.','Psub compl.'],
   'GPrép':['GN','GAdj','GAdv','Psub compl.'],
   'GAdj':['GAdv','GPrép'],
   'Psub rel.':['GN','GV','GPrép','GAdj','GAdv'],
   'Psub compl.':['GN','GV','GPrép','GAdj','GAdv'],
+  'Psub. Compl. de P':['GN','GV','GPrép','GAdj','GAdv'],
   'default':['GN','GV','GPrép','GAdj','GAdv'],
 };
 const SUBFN4 = {
-  'GN:GPrép':'Compl. du N','GN:GAdj':'Modificateur','GN:GAdv':'Modificateur','GN:Psub rel.':'Compl. du N',
+  'GN:GPrép':'Compl. du N','GN:GAdj':'Modificateur','GN:GAdv':'Modificateur','GN:Psub rel.':'Compl. du N','GN:Psub compl.':'Compl. du N','GN:Psub. Compl. de P':'Compl. du N',
   'GV:GN':'CD','GV:GPrép':'CI','GV:GAdj':'Att. du Compl.','GV:GAdv':'Modificateur','GV:GVinf.':'CD','GV:Psub compl.':'CD',
   'GPrép:GN':'Compl. de la Prép.','GPrép:GAdj':'Modificateur','GPrép:Psub compl.':'Compl. de la Prép.',
   'GAdj:GAdv':'Modificateur','GAdj:GPrép':'Compl. Adj.',
@@ -704,16 +734,16 @@ const GRP_COLORS = {
   'GN':{bg:'var(--gn-bg)',b:'var(--gn-b)'},'GV':{bg:'var(--gv-bg)',b:'var(--gv-b)'},
   'GAdj':{bg:'var(--gadj-bg)',b:'var(--gadj-b)'},'GPrép':{bg:'var(--gp-bg)',b:'var(--gp-b)'},
   'GAdv':{bg:'var(--gav-bg)',b:'var(--gav-b)'},
-  'Psub rel.':{bg:'var(--psub-bg)',b:'var(--psub-b)'},'Psub compl.':{bg:'var(--psub-bg)',b:'var(--psub-b)'},
+  'Psub rel.':{bg:'var(--psub-bg)',b:'var(--psub-b)'},'Psub compl.':{bg:'var(--psub-bg)',b:'var(--psub-b)'},'Psub. Compl. de P':{bg:'var(--psub-bg)',b:'var(--psub-b)'},
   'default':{bg:'var(--go-bg)',b:'var(--go-b)'},
 };
 const FN_COLORS = {
   'Sujet':{bg:'var(--fn-s-bg)',b:'var(--fn-s-b)'},'Prédicat':{bg:'var(--fn-p-bg)',b:'var(--fn-p-b)'},
   'Compl. de P':{bg:'var(--fn-c-bg)',b:'var(--fn-c-b)'},'default':{bg:'var(--fn-o-bg)',b:'var(--fn-o-b)'},
 };
-const ALL_FNS = ['Sujet','Prédicat','Compl. de P','CD','CI','Compl. du N','Modificateur','Att. du sujet','Att. du CD','Compl. de la Prép.','Compl. Adj.','Subordonnant','Pron. rel.'];
+const ALL_FNS = ['Sujet','Prédicat','Compl. de P','CD','CI','Compl. du N','Att. du sujet','Modificateur','Att. du CD','Compl. de la Prép.','Compl. Adj.'];
 const P_FNS_STANDARD = ['Sujet','Prédicat','Compl. de P'];
-const PSUB_INTERNAL_FNS = ['Sujet de sub.','Prédicat de sub.','Compl. de sub.','Subordonnant','Pron. rel.'];
+const PSUB_INTERNAL_FNS = ['Sujet de sub.','Prédicat de sub.','Compl. de sub.'];
 
 // ══════════════════════════════════════════════════════
 //  STATE
@@ -725,6 +755,7 @@ const S = {
   treeScale:1,
   coordRoots:null,  // [p1Id, introId, p2Id, ...] when in coord mode
   annot:{active:false, tool:'pen', color:'#ef4444', ctx:null, drawing:false, startX:0, startY:0},
+  assistedMode:false,
 };
 
 // ══════════════════════════════════════════════════════
@@ -784,11 +815,24 @@ function addFG(parentId,fn,grp,depth){
 //  LAYOUT
 // ══════════════════════════════════════════════════════
 
+function _estimateBubbleW(n){
+  if(!n) return GX;
+  const text=n.mot||n.cls||n.introType||n.pstype||'??';
+  // JetBrains Mono ~9.5px/char for mot nodes; Syne ~8px/char for others
+  const charW=(n.kind==='m'||n.kind==='motlink'||n.kind==='punct')?9.5:8;
+  const pad=36; // total horizontal padding+border in bubble
+  return Math.max(72, text.length*charW+pad);
+}
 function subTreeWidth(id){
   const n=S.nodes[id]; if(!n) return 1;
   // motlink and punct children are visual-only, don't count them in width
   const realChildren=n.children.filter(c=>S.nodes[c]&&S.nodes[c].kind!=='motlink'&&S.nodes[c].kind!=='punct');
-  if(!realChildren.length) return 1;
+  if(!realChildren.length){
+    // For terminal nodes, compute width in GX-units based on estimated bubble width
+    const bw=_estimateBubbleW(n);
+    const minGap=14;
+    return Math.max(1,(bw+minGap)/GX);
+  }
   return realChildren.reduce((s,c)=>s+subTreeWidth(c),0);
 }
 
@@ -803,6 +847,63 @@ function layoutSubTree(id,left,structDepth){
     layoutSubTree(c,cur,structDepth+1);
     cur+=subTreeWidth(c);
   });
+}
+
+// Compute the minimum X gap needed between two subtree roots so their bubbles never overlap.
+function _gapBetweenSubtrees(leftId, rightId){
+  // Use real estimated bubble widths at the point where they're closest
+  const lw=_estimateBubbleW(S.nodes[leftId]||{})/2;
+  const rw=_estimateBubbleW(S.nodes[rightId]||{})/2;
+  return lw+rw+14; // 14px minimum clearance
+}
+
+// Get the rightmost X-edge of a full subtree (including all descendants).
+function _getRightmostX(id){
+  const n=S.nodes[id]; if(!n||n.x===undefined) return -Infinity;
+  const hw=_estimateBubbleW(n)/2;
+  let maxX=n.x+hw;
+  const realChildren=(n.children||[]).filter(c=>S.nodes[c]&&S.nodes[c].kind!=='motlink'&&S.nodes[c].kind!=='punct');
+  realChildren.forEach(c=>{ maxX=Math.max(maxX,_getRightmostX(c)); });
+  return maxX;
+}
+
+// Get the leftmost X-edge of a full subtree (including all descendants).
+function _getLeftmostX(id){
+  const n=S.nodes[id]; if(!n||n.x===undefined) return Infinity;
+  const hw=_estimateBubbleW(n)/2;
+  let minX=n.x-hw;
+  const realChildren=(n.children||[]).filter(c=>S.nodes[c]&&S.nodes[c].kind!=='motlink'&&S.nodes[c].kind!=='punct');
+  realChildren.forEach(c=>{ minX=Math.min(minX,_getLeftmostX(c)); });
+  return minX;
+}
+
+// After layout, do a bottom-up pass to ensure no two sibling subtrees overlap,
+// using the full extents of each subtree (not just the root bubble).
+function _fixOverlapPass(id){
+  const n=S.nodes[id]; if(!n) return;
+  const realCh=n.children.filter(c=>S.nodes[c]&&S.nodes[c].kind!=='motlink'&&S.nodes[c].kind!=='punct');
+  // Recurse first (bottom-up)
+  realCh.forEach(c=>_fixOverlapPass(c));
+  // Then ensure siblings don't overlap using full subtree extents
+  for(let i=1;i<realCh.length;i++){
+    const left=S.nodes[realCh[i-1]], right=S.nodes[realCh[i]];
+    if(!left||!right) continue;
+    const MIN_CLEARANCE=14;
+    const rightEdgeOfLeft=_getRightmostX(realCh[i-1]);
+    const leftEdgeOfRight=_getLeftmostX(realCh[i]);
+    const overlap=rightEdgeOfLeft+MIN_CLEARANCE-leftEdgeOfRight;
+    if(overlap>0){
+      // Shift the right subtree and all its descendants
+      function shiftSubtree(sid,dx){
+        const sn=S.nodes[sid]; if(!sn) return;
+        if(!sn._manualPos) sn.x+=dx;
+        (sn.children||[]).forEach(c=>shiftSubtree(c,dx));
+      }
+      shiftSubtree(realCh[i],overlap);
+      // Also shift all subsequent siblings
+      for(let j=i+1;j<realCh.length;j++) shiftSubtree(realCh[j],overlap);
+    }
+  }
 }
 
 function getMaxStructDepth(id){
@@ -960,6 +1061,7 @@ function doLayout(){
         if(outer&&outer.clientWidth>0) root.x=Math.round(outer.clientWidth/2);
       }
     }
+    _fixOverlapPass(S.rootId);
     applyY(S.rootId);
   }
 
@@ -977,6 +1079,203 @@ function doLayout(){
     ac.style.width=maxX+'px';ac.style.height=maxY+'px';
     ac._naturalW=maxX; ac._naturalH=maxY;
   }
+  // Re-layout free nodes to prevent overlapping
+  _layoutFreeNodes();
+}
+
+// ── Re-layout free (unparented) nodes to prevent overlap ──────────────────
+// Also: when all words are in tree, snap finalPunct to the tree word row.
+function _layoutFreeNodes(){
+  const CHAR_W=9.5, PAD=36, GAP=16, MIN_W=72;
+
+  // Collect free mot nodes sorted by phrase order
+  const freeM=Object.values(S.nodes)
+    .filter(n=>n.kind==='m'&&!n.parentId)
+    .sort((a,b)=>(a.origIdx??999999)-(b.origIdx??999999));
+
+  // Collect free punct/finalPunct nodes (non-auto-comma)
+  const freePunct=Object.values(S.nodes)
+    .filter(n=>(n.kind==='punct'||n.kind==='finalPunct')&&!n.parentId&&!n._autoCommaCP);
+
+  // ── Final punct: dès qu'au moins un mot est dans l'arbre, le quitter de la ligne libre ──
+  const finalPunctNode=freePunct.find(p=>p._isFinalPunct||p.id==='_fp_auto');
+  if(finalPunctNode){
+    const realWords=S.words?S.words.filter(w=>!w.isPunct):[];
+    const parentedMots=Object.values(S.nodes).filter(n=>n.kind==='m'&&n.parentId&&n.y!=null);
+    const placedIdxs=new Set(parentedMots.map(n=>n.origIdx));
+    // Dès qu'UN SEUL mot réel est dans l'arbre, la ponctuation finale quitte la ligne des mots libres
+    const anyPlaced=realWords.length>0&&realWords.some(w=>placedIdxs.has(w.idx));
+    if(anyPlaced&&parentedMots.length){
+      // Trouver la rangée terminale (Y max) et le dernier mot en lecture (origIdx max)
+      const terminalY=Math.max(...parentedMots.map(n=>n.y));
+      // Parmi les mots intégrés, le dernier en ordre de lecture
+      const motsAtTerminal=parentedMots.filter(n=>n.y===terminalY);
+      // Chercher le mot avec le plus grand origIdx (dernier en lecture)
+      const lastInReading=parentedMots.reduce((a,b)=>{
+        const oa=(a.origIdx!=null)?a.origIdx:-1;
+        const ob=(b.origIdx!=null)?b.origIdx:-1;
+        return ob>oa?b:a;
+      });
+      finalPunctNode.x=lastInReading.x+70;
+      finalPunctNode.y=terminalY;
+      finalPunctNode._manualPos=true;
+      // Si plus aucun mot libre, on sort
+      if(!freeM.length) return;
+    }
+  }
+
+  if(!freeM.length&&!freePunct.length) return;
+
+  // Determine baseY: below all PARENTED nodes
+  let baseY=TOP_Y+4*GY;
+  Object.values(S.nodes).forEach(n=>{
+    if(n.parentId&&n.y!==undefined&&n.y>baseY-GY) baseY=Math.max(baseY,n.y+GY);
+  });
+
+  // Compute widths for free mots
+  const mWidths=freeM.map(n=>Math.max(MIN_W,(n.mot||'').length*CHAR_W+PAD));
+  const totalW=mWidths.reduce((s,w)=>s+w,0)+GAP*(Math.max(freeM.length-1,0));
+
+  // Center around tree root or parented node centroid
+  const root=S.nodes[S.rootId];
+  let centerX=root&&root.x?root.x:400;
+  const parentedXs=Object.values(S.nodes).filter(n=>n.parentId&&n.x>0).map(n=>n.x);
+  if(parentedXs.length) centerX=parentedXs.reduce((a,b)=>a+b,0)/parentedXs.length;
+
+  let curX=centerX-totalW/2;
+  freeM.forEach((n,i)=>{
+    const w=mWidths[i];
+    n.x=curX+w/2;
+    n.y=baseY;
+    n._manualPos=true;
+    curX+=w+GAP;
+  });
+
+  // Place free punct/finalPunct nodes by phrase order
+  freePunct.forEach(pn=>{
+    if(pn._isFinalPunct||pn.id==='_fp_auto'){
+      pn.y=baseY;
+      if(freeM.length){
+        const lastM=freeM[freeM.length-1];
+        pn.x=lastM.x+(mWidths[mWidths.length-1]/2)+GAP+MIN_W/2;
+      }
+      return;
+    }
+    pn.y=baseY;
+    const punctOrigIdx=pn.origIdx??999;
+    const prevM=freeM.filter(m=>(m.origIdx??0)<punctOrigIdx).slice(-1)[0];
+    const nextM=freeM.filter(m=>(m.origIdx??0)>punctOrigIdx)[0];
+    if(prevM&&nextM) pn.x=(prevM.x+nextM.x)/2;
+    else if(prevM) pn.x=prevM.x+GAP+MIN_W/2;
+    else if(nextM) pn.x=nextM.x-GAP-MIN_W/2;
+  });
+}
+
+// ── Détection d'incohérence d'ordre syntaxique (Point 48) ────────────────
+// Collect all leaf origIdx values inside a subtree (in tree traversal order)
+function _getSubtreeOrigIdxs(nodeId){
+  const idxs=[];
+  function walk(id){
+    const n=S.nodes[id]; if(!n) return;
+    if(n.kind==='m'&&n.origIdx!=null) idxs.push(n.origIdx);
+    (n.children||[]).forEach(walk);
+  }
+  walk(nodeId);
+  return idxs;
+}
+
+// Get ALL leaf origIdxs for a subtree, sorted by tree left-to-right order
+function _getLeafSequence(nodeId){
+  const seq=[];
+  function walk(id){
+    const n=S.nodes[id]; if(!n) return;
+    if(n.kind==='m'&&n.origIdx!=null){ seq.push(n.origIdx); return; }
+    // Sort children by their minimum origIdx before traversing (phrase order)
+    const sorted=[...(n.children||[])].sort((a,b)=>{
+      const ma=Math.min(..._getSubtreeOrigIdxs(a).concat([9999]));
+      const mb=Math.min(..._getSubtreeOrigIdxs(b).concat([9999]));
+      return ma-mb;
+    });
+    sorted.forEach(walk);
+  }
+  walk(nodeId);
+  return seq;
+}
+
+// A node has an order problem if the leaf-sequence it introduces is not monotonically
+// increasing relative to the global phrase order, or if any word inside it comes
+// BETWEEN two words of a SIBLING subtree (interleaving).
+function _hasOrderProblem(nodeId){
+  const n=S.nodes[nodeId]; if(!n) return false;
+  // Only flag fg, g, psub nodes that have actual word content
+  if(n.kind!=='fg'&&n.kind!=='g'&&n.kind!=='psub') return false;
+
+  const myIdxs=_getSubtreeOrigIdxs(nodeId);
+  if(myIdxs.length<1) return false;
+  const myMin=Math.min(...myIdxs), myMax=Math.max(...myIdxs);
+
+  // Rule 1: the words inside this group must be a contiguous range from the phrase
+  // (no gaps caused by interleaving with siblings)
+  // Build the set of all origIdxs that should be between myMin and myMax
+  const expectedRange=[];
+  for(let i=myMin;i<=myMax;i++) expectedRange.push(i);
+  const mySet=new Set(myIdxs);
+  // Check if any origIdx in [myMin,myMax] belongs to a SIBLING (interleaving)
+  if(n.parentId){
+    const parent=S.nodes[n.parentId];
+    if(parent){
+      for(const sibId of (parent.children||[])){
+        if(sibId===nodeId) continue;
+        const sibIdxs=_getSubtreeOrigIdxs(sibId);
+        for(const si of sibIdxs){
+          if(si>myMin&&si<myMax&&!mySet.has(si)) return true; // sibling word inside our range
+        }
+      }
+    }
+  }
+
+  // Rule 2: internal leaf order must be non-decreasing
+  const seq=_getLeafSequence(nodeId);
+  for(let i=1;i<seq.length;i++){
+    if(seq[i]<seq[i-1]) return true;
+  }
+
+  return false;
+}
+
+// Set of dismissed warnings (nodeId → true) — cleared on renderTree
+let _dismissedWarnings=new Set();
+
+function _checkOrderWarnings(){
+  // Remove stale warning badges
+  document.querySelectorAll('.node-order-warn').forEach(b=>b.remove());
+  if(!S.words||!S.words.length) return;
+  Object.values(S.nodes).forEach(n=>{
+    if(_dismissedWarnings.has(n.id)) return;
+    if(!_hasOrderProblem(n.id)) return;
+    const el=document.getElementById('nd-'+n.id);
+    if(!el) return;
+    const badge=document.createElement('div');
+    badge.className='node-order-warn';
+    badge.title='Incohérence d\'ordre — cliquer pour détails';
+    badge.textContent='!';
+    badge.addEventListener('click',e=>{
+      e.stopPropagation();
+      // Build tooltip message
+      const myIdxs=_getSubtreeOrigIdxs(n.id).sort((a,b)=>a-b);
+      const motTexts=myIdxs.map(i=>S.words[i]?.text).filter(Boolean).join(', ');
+      _ctxBlocked=true; setTimeout(()=>{_ctxBlocked=false;},200);
+      buildCtxAt('⚠️ Ordre incohérent',[
+        {label:'Les mots ['+motTexts+'] sont dans une séquence dont l\'ordre ne correspond pas à la phrase source.',action:null,dot:'#fef9c3',border:'#f59e0b'},
+        null,
+        {label:'Compris – fermer',action:()=>{
+          _dismissedWarnings.add(n.id);
+          badge.remove();
+        },dot:'#f0fdf4',border:'#86efac'},
+      ],e.clientX+8,e.clientY+8);
+    });
+    el.appendChild(badge);
+  });
 }
 
 function computeAndApplyScale(forceAutoFit){
@@ -1040,10 +1339,56 @@ function computeAndApplyScale(forceAutoFit){
 // ══════════════════════════════════════════════════════
 //  RENDER
 // ══════════════════════════════════════════════════════
+// ── Virgule automatique après Compl. de P ──────────────────────
+function _applyAutoCommaCP(){
+  // Supprimer les anciennes virgules auto
+  Object.keys(S.nodes).forEach(id=>{
+    if(S.nodes[id]&&S.nodes[id]._autoCommaCP) delete S.nodes[id];
+  });
+  if(!S.words||!S.words.length) return;
+  // Chercher tous les fg Compl. de P
+  Object.values(S.nodes).forEach(fg=>{
+    if(!fg||fg.kind!=='fg'||fg.fn!=='Compl. de P') return;
+    // Trouver le dernier mot (origIdx max) dans ce sous-arbre
+    let maxIdx=-1;
+    function collectMaxIdx(nid){
+      const nn=S.nodes[nid]; if(!nn) return;
+      if(nn.kind==='m'&&nn.origIdx!==undefined&&nn.origIdx!==null) maxIdx=Math.max(maxIdx,nn.origIdx);
+      (nn.children||[]).forEach(collectMaxIdx);
+    }
+    collectMaxIdx(fg.id);
+    if(maxIdx<0) return;
+    // Vérifier si le mot suivant dans S.words est une ponctuation virgule
+    const nextW=S.words[maxIdx+1];
+    if(!nextW||!nextW.isPunct||nextW.text!==',') return;
+    // Trouver le nœud mot avec cet origIdx pour positionner la virgule à sa droite
+    let lastMotNode=null;
+    Object.values(S.nodes).forEach(nn=>{
+      if(nn.kind==='m'&&nn.origIdx===maxIdx) lastMotNode=nn;
+    });
+    if(!lastMotNode) return;
+    // Créer un nœud virgule (punct) ancré visuellement à droite du dernier mot
+    const commaId='_comma_cp_'+fg.id;
+    if(S.nodes[commaId]) return; // déjà présent
+    S.nodes[commaId]={
+      id:commaId,kind:'punct',mot:',',
+      parentId:null,_autoCommaCP:true,
+      children:[],depth:lastMotNode.depth,
+      x:lastMotNode.x+80,y:lastMotNode.y,
+      mp:true,_manualPos:true
+    };
+  });
+}
+
 function renderTree(animId){
+  // Reset dismissed order warnings on each full re-render
+  _dismissedWarnings=new Set();
   doLayout();
   document.querySelectorAll('.tnode').forEach(e=>e.remove());
+  // Virgule automatique après Compl. de P
+  _applyAutoCommaCP();
   Object.values(S.nodes).forEach(n=>renderNode(n,animId));
+  _enforceOneMotPerClass();
   renderEdges();
   renderPhraseBottom();
   // Auto-fit after render (use rAF so DOM has settled)
@@ -1051,7 +1396,27 @@ function renderTree(animId){
     computeAndApplyScale(true);
     if(_highlightRoot&&S.nodes[_highlightRoot]) highlightSubtree(_highlightRoot);
     else if(_highlightRoot) exitHighlightMode();
+    _repositionZoomBar();
+    _updateAddAllBtn();
+    // Re-attach pbar drag/sel listeners to all containers (robust against DOM rebuilds)
+    ['pwords','pwords-fs','pwords-bottom','pwords-manip'].forEach(cid=>{
+      const cc=document.getElementById(cid);
+      if(cc&&cc.querySelector('[data-idx]')) initPbarSel(cc);
+    });
+    // Check and display order-inconsistency warnings
+    _checkOrderWarnings();
   });
+}
+
+// Zoom controls always stay compact at top-left (permanent anchor)
+function _repositionZoomBar(){
+  const zc=document.getElementById('tree-zoom-controls');
+  if(!zc) return;
+  // Always force top-left, never reposition
+  zc.style.top='10px'; zc.style.bottom=''; zc.style.left='10px'; zc.style.right='';
+  zc.style.flexDirection='row';
+  zc.style.position='absolute';
+  zc.style.maxWidth=''; zc.style.width=''; // never expand
 }
 
 function renderNode(n,animId){
@@ -1062,11 +1427,22 @@ function renderNode(n,animId){
   else if(n.kind==='psub') kindCls='nk-psub';
   else if(n.kind==='fg') kindCls='nk-fg '+(FN_CLS[n.fn]||FN_CLS['default']);
   else if(n.kind==='g') kindCls='nk-g '+(GRP_CLS[n.grp]||GRP_CLS['default']);
-  else if(n.kind==='c') kindCls='nk-c'+(n.isConj?' conj-node':'');
+  else if(n.kind==='c'){
+    kindCls='nk-c'+(n.isConj?' conj-node':'');
+    // Mode assisté
+    if(S.assistedMode&&n.cls){
+      const _grpMap={'Nom':'GN','Adj.':'GAdj','Verbe':'GV','Adv.':'GAdv','Prép.':'GPrép'};
+      const _eg=_grpMap[n.cls];
+      if(_eg){
+        const _p=S.nodes[n.parentId],_gp=_p?S.nodes[_p.parentId]:null;
+        n._assistedHint=(_eg!==(_p&&_p.grp))&&(_eg!==(_gp&&_gp.grp));
+      }else{n._assistedHint=false;}
+    }else{n._assistedHint=false;}
+  }
   else if(n.kind==='m') kindCls='nk-m'+(S.tnoSel.has(n.id)?' mot-sel':'');
   else if(n.kind==='intro') kindCls='nk-intro';
   else if(n.kind==='motlink') kindCls='nk-motlink';
-  else if(n.kind==='punct') kindCls='nk-punct';
+  else if(n.kind==='punct'||n.kind==='finalPunct') kindCls='nk-punct';
 
   let cls='tnode '+kindCls;
   if(animId&&animId===n.id) cls+=' new';
@@ -1103,28 +1479,30 @@ function renderNode(n,animId){
   } else if(n.kind==='g'){
     inner=`<span class="node-main">${n.grp}</span>`;
   } else if(n.kind==='c'){
-    inner=`<span class="node-sub">classe</span><span class="node-main">${n.cls&&n.cls!=='?'?n.cls:'–'}</span>`;
+    const hintBulb=n._assistedHint?` <span class="assisted-hint" title="Cliquer pour l'aide" onclick="event.stopPropagation();showAssistedMsg(event,'${n.id}')">💡</span>`:'';
+    const displayCls=(n.cls&&n.cls!=='?')?(n.cls==='Subordonnant'?'Subord.':n.cls):'–';
+    inner=`<span class="node-sub">classe</span><span class="node-main">${displayCls}${hintBulb}</span>`;
   } else if(n.kind==='m'){
     inner=`<span class="node-main">${n.mot}</span>`;
   } else if(n.kind==='intro'){
     inner=`<span class="node-sub">${n.introType||'lien'}</span><span class="node-main">${n.mot||'?'}</span>`;
   } else if(n.kind==='motlink'){
     inner=`<span class="node-main">${n.mot||'?'}</span>`;
-  } else if(n.kind==='punct'){
+  } else if(n.kind==='punct'||n.kind==='finalPunct'){
     inner=`<span class="node-main">${n.mot||'?'}</span>`;
   }
 
   // del button — not on P root, not on pn in coordRoots row, not on coord intro/motlink
-  const isCoordRoot = n.isCoord || n.kind==='motlink' || n.kind==='punct' || (n.kind==='pn' && S.coordRoots && S.coordRoots.includes(n.id));
+  const isCoordRoot = n.isCoord || n.kind==='motlink' || n.kind==='punct' || n.kind==='finalPunct' || (n.kind==='pn' && S.coordRoots && S.coordRoots.includes(n.id));
   const noDel = n.kind==='p' || isCoordRoot;
   if(!noDel) inner+=`<button class="ndel" onclick="event.stopPropagation();snap('del');S.tnoSel.delete('${n.id}');delRec('${n.id}');renderTree();setHL('Supprimé.')">×</button>`;
-  // add button — not on mot/motlink, not on coord intro
-  if(n.kind!=='m' && n.kind!=='motlink' && n.kind!=='punct' && !n.isCoord) inner+=`<button class="nplus" onclick="event.stopPropagation();openAdd(event,'${n.id}')">+</button>`;
+  // add button — not on mot/motlink, not on coord intro, not on punct/finalPunct
+  if(n.kind!=='m' && n.kind!=='motlink' && n.kind!=='punct' && n.kind!=='finalPunct' && !n.isCoord) inner+=`<button class="nplus" onclick="event.stopPropagation();openAdd(event,'${n.id}')">+</button>`;
 
   el.innerHTML=inner;
 
-  // Drop target — not on mot/motlink, not on coord intro
-  if(n.kind!=='m' && n.kind!=='motlink' && n.kind!=='punct' && !n.isCoord){
+  // Drop target — not on mot/motlink, not on coord intro, not on punct/finalPunct
+  if(n.kind!=='m' && n.kind!=='motlink' && n.kind!=='punct' && n.kind!=='finalPunct' && !n.isCoord){
     el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('drag-over');});
     el.addEventListener('dragleave',()=>el.classList.remove('drag-over'));
     el.addEventListener('drop',e=>{e.preventDefault();el.classList.remove('drag-over');
@@ -1157,35 +1535,45 @@ function renderNode(n,animId){
     }
     function getValidDropNode(clientX,clientY,ids){
       const els=document.elementsFromPoint(clientX,clientY)||[];
-      const nodeEl=els.find(x=>{
-        if(!x.classList) return false;
-        const t=x.classList.contains('tnode') ? x : (x.closest ? x.closest('.tnode') : null);
-        if(!t) return false;
+      // Walk every element from point, resolve to its owning .tnode, deduplicate
+      for(const x of els){
+        if(!x) continue;
+        const t=x.classList&&x.classList.contains('tnode') ? x : (x.closest ? x.closest('.tnode') : null);
+        if(!t) continue;
         const nid=t.id.replace('nd-','');
-        if(ids.includes(nid)) return false;
+        if(ids.includes(nid)) continue;          // skip the dragged nodes themselves
         const target=S.nodes[nid];
-        if(!target) return false;
-        if(target.kind==='motlink'||target.kind==='punct'||target.isCoord) return false;
-        return true;
-      });
-      if(!nodeEl) return null;
-      return (nodeEl.classList.contains('tnode')?nodeEl:nodeEl.closest('.tnode')).id.replace('nd-','');
+        if(!target) continue;
+        // Only valid drop targets: p, pn, psub, fg, g, c  (not m, motlink, punct, coord intro)
+        if(target.kind==='m'||target.kind==='motlink'||target.kind==='punct'||target.kind==='finalPunct'||target.isCoord) continue;
+        return nid;
+      }
+      return null;
     }
     function finishPointerDrag(clientX,clientY){
       const ids=(S.dragMotIds&&S.dragMotIds.length)?[...S.dragMotIds]:[];
-      setDraggingUI(ids,false);
+      // Find target BEFORE hiding ghost (ghost has pointer-events:none so it doesn't interfere)
       const nid=(ids.length&&dragStarted)?getValidDropNode(clientX,clientY,ids):null;
+      setDraggingUI(ids,false);
       S.dragMotIds=null;
       pd=null;
-      if(nid&&S.nodes[nid]) dropMotNodes(nid,ids);
+      dragStarted=false;
+      if(nid&&S.nodes[nid]){
+        // Block the synthesised click/pointerup that browsers fire right after
+        // a pointerup so it doesn't close the context menu we're about to open.
+        _ctxBlocked=true;
+        setTimeout(()=>{ _ctxBlocked=false; },200);
+        dropMotNodes(nid,ids);
+      }
     }
 
     el.addEventListener('click',e=>{
       e.stopPropagation();
       if(suppressClick){
         suppressClick=false;
-        return;
+        return; // was a drag release — don't dismiss the menu we just opened
       }
+      closeCtx();
       if(S.tnoSel.has(n.id)) S.tnoSel.delete(n.id); else S.tnoSel.add(n.id);
       const d=document.getElementById('nd-'+n.id);
       if(d){if(S.tnoSel.has(n.id))d.classList.add('mot-sel');else d.classList.remove('mot-sel');}
@@ -1223,7 +1611,11 @@ function renderNode(n,animId){
     el.addEventListener('pointerup',e=>{
       if(!pd||pd.pointerId!==e.pointerId) return;
       e.stopPropagation();
+      const wasDrag=dragStarted;
       finishPointerDrag(e.clientX,e.clientY);
+      // If we just completed a real drag, also suppress the click on *this* element
+      if(wasDrag) suppressClick=true;
+      if(el.releasePointerCapture) try{el.releasePointerCapture(e.pointerId);}catch(err){}
     });
 
     el.addEventListener('pointercancel',e=>{
@@ -1239,12 +1631,9 @@ function renderNode(n,animId){
     if(!n.isCoord){
       el.addEventListener('click',e=>{
         e.stopPropagation();
-        // If phrase-bar words are selected, treat click as a drop from phrase bar
-        if(S.selected.size > 0){
-          dropWord(n.id);
-          return;
-        }
-        // If tree mot nodes are selected (tnoSel), treat as drag-drop of those mots
+        closeCtx();
+        // Check tree mot selection FIRST (takes priority over pbar selection)
+        // because syncSelFromTno also sets S.selected, which would wrongly trigger dropWord
         if(S.tnoSel && S.tnoSel.size > 0){
           const motIds=[...S.tnoSel].filter(id=>S.nodes[id]&&S.nodes[id].kind==='m');
           if(motIds.length>0){
@@ -1252,8 +1641,40 @@ function renderNode(n,animId){
             return;
           }
         }
+        // If phrase-bar words are selected (not from tree), treat click as a drop from phrase bar
+        if(S.selected.size > 0){
+          dropWord(n.id);
+          return;
+        }
         openMenu(e,n.id);
       });
+      // Tactile : tap court = menu (si pas de drag en cours)
+      let _touchTapStart=null;
+      el.addEventListener('touchstart',e=>{
+        if(S.annot&&S.annot.active) return;
+        e.stopPropagation(); // Prevent tree-outer pan from starting
+        _touchTapStart={x:e.touches[0].clientX,y:e.touches[0].clientY,t:Date.now()};
+      },{passive:false});
+      el.addEventListener('touchend',e=>{
+        if(!_touchTapStart) return;
+        const dx=Math.abs(e.changedTouches[0].clientX-_touchTapStart.x);
+        const dy=Math.abs(e.changedTouches[0].clientY-_touchTapStart.y);
+        const dt=Date.now()-_touchTapStart.t;
+        _touchTapStart=null;
+        // Tap court sans mouvement → ouvrir menu
+        if(dx<10&&dy<10&&dt<500){
+          e.stopPropagation();
+          e.preventDefault();
+          const fakeE={clientX:e.changedTouches[0].clientX,clientY:e.changedTouches[0].clientY,stopPropagation:()=>{}};
+          // Check tree mot selection FIRST (priority over pbar)
+          if(S.tnoSel&&S.tnoSel.size>0){
+            const motIds=[...S.tnoSel].filter(id=>S.nodes[id]&&S.nodes[id].kind==='m');
+            if(motIds.length>0){dropMotNodes(n.id,motIds);return;}
+          }
+          if(S.selected.size>0){dropWord(n.id);return;}
+          openMenu(fakeE,n.id);
+        }
+      },{passive:false});
       makeDrag(el,n);
     } else {
       // Coord intro node: click opens change-word menu only
@@ -1287,8 +1708,8 @@ function renderEdges(){
       return;
     }
 
-    if(n.kind==='punct'){
-      return; // No line drawn to punct bubbles
+    if(n.kind==='punct'||n.kind==='finalPunct'){
+      return; // No line drawn to punct/finalPunct bubbles
     }
     if(n.kind==='m'||n.kind==='intro'){
       const line=document.createElementNS('http://www.w3.org/2000/svg','line');
@@ -1472,13 +1893,13 @@ function dropWord(nodeId){
   if(S.dragWordIdx!==null){
     if(S.selected.size>0&&S.selected.has(S.dragWordIdx)){
       const idxs=[...S.selected].sort((a,b)=>a-b);
-      wordSpecs=idxs.map(i=>mkWordSpec(S.words[i]?.text, S.words[i]?.idx ?? i)).filter(w=>w.text);
+      wordSpecs=idxs.map(i=>mkWordSpec(S.words[i]?.text, S.words[i]?.idx ?? i)).filter(w=>w.text&&!(S.words[w.origIdx]?.isPunct));
       wordArr=wordSpecs.map(w=>w.text); txt=wordArr.join(' ');
-    } else {const i=S.dragWordIdx; const spec=mkWordSpec(S.words[i]?.text||'', S.words[i]?.idx ?? i); txt=spec.text||''; wordSpecs=txt?[spec]:[]; wordArr=wordSpecs.map(w=>w.text);}
+    } else {const i=S.dragWordIdx; if(S.words[i]?.isPunct){S.dragWordIdx=null;return;} const spec=mkWordSpec(S.words[i]?.text||'', S.words[i]?.idx ?? i); txt=spec.text||''; wordSpecs=txt?[spec]:[]; wordArr=wordSpecs.map(w=>w.text);}
     S.dragWordIdx=null;
   } else if(S.selected.size){
     const idxs=[...S.selected].sort((a,b)=>a-b);
-    wordSpecs=idxs.map(i=>mkWordSpec(S.words[i]?.text, S.words[i]?.idx ?? i)).filter(w=>w.text);
+    wordSpecs=idxs.map(i=>mkWordSpec(S.words[i]?.text, S.words[i]?.idx ?? i)).filter(w=>w.text&&!(S.words[w.origIdx]?.isPunct));
     wordArr=wordSpecs.map(w=>w.text); txt=wordArr.join(' ');
   }
   if(!txt) return;
@@ -1492,17 +1913,18 @@ function dropWord(nodeId){
     showDropOnP(n,wordArr,wordSpecs); return;
   }
   if(n.kind==='fg'||n.kind==='g'){
-    snap('drop');
-    wordSpecs.forEach(w=>{const cid=mkNode('c',{cls:'?'},n.id);mkNode('m',{mot:w.text,origIdx:w.origIdx},cid);});
-    renderTree(n.id);setHL('Mots ajoutés. Cliquez les « – » pour définir les classes.');clearSel();
+    // Show the same choice menu as drag-and-drop (class + sub-group options)
+    showDropChoiceMenu(n, txt, wordArr, wordSpecs);
     return;
   }
   if(n.kind==='c'){
     if(wordArr.length>1){setHL('⚠️ Un nœud de classe accepte un seul mot.');clearSel();return;}
-    snap('drop');
+    // Block: if class already has a mot child, refuse silently
     const ex=n.children.find(c=>S.nodes[c]?.kind==='m');
-    if(ex){S.nodes[ex].mot=txt; if(wordSpecs[0]) S.nodes[ex].origIdx=wordSpecs[0].origIdx;} else mkNode('m',{mot:txt,origIdx:wordSpecs[0]?.origIdx},n.id,n.depth+1);
-    renderTree();setHL('Mot mis à jour.');clearSel();return;
+    if(ex){clearSel();return;}
+    snap('drop');
+    mkNode('m',{mot:txt,origIdx:wordSpecs[0]?.origIdx},n.id,n.depth+1);
+    renderTree();setHL('Mot ajouté.');clearSel();return;
   }
   snap('drop');
   if(n.kind==='m'){n.mot=txt;renderTree();setHL('Mot remplacé.');clearSel();return;}
@@ -1578,7 +2000,7 @@ function showDropGrpForFn(parentId,fn,depth,wordArr,wordSpecs,cx,cy){
 
   // Then offer to create new groups
   grps.forEach(g=>{
-    if(g==='Psub rel.'||g==='Psub compl.'){
+    if(g==='Psub rel.'||g==='Psub compl.'||g==='Psub. Compl. de P'){
       items.push(mkItemColor('+ '+g,'var(--psub-bg)','var(--psub-b)',()=>{
         snap('add');
         const psId=mkNode('psub',{pstype:g,fn},parentId,depth);
@@ -1599,9 +2021,8 @@ function showDropGrpForFn(parentId,fn,depth,wordArr,wordSpecs,cx,cy){
 }
 
 function showDropChoiceMenu(n,txt,wordArr,wordSpecs){
-  const parentGrp=n.kind==='fg'?n.grp:(n.grp||'');
+  const parentGrp=n.kind==='fg'?n.grp:(n.kind==='psub'?n.pstype:(n.grp||''));
   const subGrps=SUBGRP4GRP[parentGrp]||SUBGRP4GRP['default'];
-  const validCls=CLS4GRP[parentGrp]||CLS4GRP['default'];
   const nodeEl=document.getElementById('nd-'+n.id);
   let cx,cy;
   if(nodeEl){
@@ -1616,21 +2037,80 @@ function showDropChoiceMenu(n,txt,wordArr,wordSpecs){
     cx=Math.min(rect.left+n.x-outerEl.scrollLeft+20,window.innerWidth-220);
     cy=Math.min(rect.top+n.y-outerEl.scrollTop+30,window.innerHeight-300);
   }
+  // Direct placement (cls='?' — user picks class later via class bubble)
+  const directItem=mkItemColor('📥 Ajouter directement','var(--abg)','var(--ac)',()=>{
+    snap('add');
+    const arr=(wordSpecs&&wordSpecs.length)?wordSpecs:wordArr.map(w=>mkWordSpec(w));
+    arr.forEach(w=>{const cid=mkNode('c',{cls:'?'},n.id,n.depth+1);mkNode('m',{mot:w.text,origIdx:w.origIdx},cid,n.depth+2);});
+    renderTree(n.id);setHL('Mot(s) ajouté(s).');clearSel();
+  });
   const grpItems=subGrps.map(g=>{
     const col=GRP_COLORS[g]||GRP_COLORS['default'];
-    return mkItemColor('📦 Groupe : '+g,col.bg,col.b,()=>showSubFnForDrop(n,g,txt,wordArr,wordSpecs,cx,cy));
+    return mkItemColor('📦 Sous-groupe : '+g,col.bg,col.b,()=>showSubFnForDrop(n,g,txt,wordArr,wordSpecs,cx,cy));
   });
-  const clsItems=validCls.map(c=>mkItemColor('🏷️ Classe : '+c,'var(--cls-bg)','var(--cls-b)',()=>{
-    snap('add');const cid=mkNode('c',{cls:c},n.id,n.depth+1);mkNode('m',{mot:txt,origIdx:wordSpecs&&wordSpecs[0]?wordSpecs[0].origIdx:undefined},cid,n.depth+2);
-    renderTree(cid);setHL('"'+txt+'" ajouté sous '+c+'.');clearSel();
-  }));
-  buildCtxAt('Ajouter dans '+parentGrp,[...grpItems,null,...clsItems],cx,cy);
+  buildCtxAt('Ajouter dans '+parentGrp,[directItem,null,...grpItems],cx,cy);
+}
+
+// ── Validation : empêcher qu'un seul mot génère deux niveaux fg/g imbriqués ──
+// Renvoie true si créer un nouveau fg/g contenant uniquement wordArr[0]
+// à l'intérieur de parentId serait asyntaxique (un seul mot = seul contenu de deux couches).
+// Structural integrity: class node must have at most ONE mot child
+function _enforceOneMotPerClass(){
+  Object.values(S.nodes).forEach(n=>{
+    if(n.kind!=='c') return;
+    const motCh=(n.children||[]).filter(c=>S.nodes[c]&&S.nodes[c].kind==='m');
+    if(motCh.length<=1) return;
+    for(let i=1;i<motCh.length;i++){n.children=n.children.filter(c=>c!==motCh[i]);delete S.nodes[motCh[i]];}
+  });
+}
+
+function _wouldCreateAsyntacticSingleWordStack(parentId, wordArr){
+  if(!wordArr||wordArr.length!==1) return false;
+  const parent=S.nodes[parentId];
+  if(!parent||(parent.kind!=='fg'&&parent.kind!=='g')) return false;
+  const realCh=(parent.children||[]).filter(c=>{
+    const cn=S.nodes[c];
+    return cn&&cn.kind!=='motlink'&&cn.kind!=='punct';
+  });
+  // Cas 1 : le parent est vide → le nouveau fg serait son seul enfant avec 1 mot = asyntaxique
+  if(realCh.length===0) return true;
+  // Cas 2 : le parent n'a qu'un seul enfant qui est c→m contenant ce même mot (déplacement)
+  if(realCh.length===1){
+    const oc=S.nodes[realCh[0]];
+    if(oc){
+      if(oc.kind==='m'&&oc.mot===wordArr[0]) return true;
+      if(oc.kind==='c'){
+        const motCh=oc.children.map(id=>S.nodes[id]).find(n=>n?.kind==='m'&&n.mot===wordArr[0]);
+        if(motCh) return true;
+      }
+      // Si l'unique enfant est un fg/g avec un seul mot, un ajout supplémentaire est aussi asyntaxique
+      if((oc.kind==='fg'||oc.kind==='g')&&_getSubtreeOrigIdxs(oc.id).length===1){
+        const childMots=Object.values(S.nodes).filter(n=>n.kind==='m');
+        const wordInChild=childMots.find(n=>n.mot===wordArr[0]);
+        if(wordInChild) return true;
+      }
+    }
+  }
+  return false;
+}
+
+// Message d'avertissement affiché quand une structure asyntaxique est bloquée
+function _showAsyntacticWarning(){
+  buildCtxAt('⚠️ Structure non valide',[
+    {label:'Un seul mot ne peut pas constituer à lui seul deux niveaux de groupe ou de fonction imbriqués.',action:null,dot:'#fef9c3',border:'#f59e0b'},
+    null,
+    {label:'Compris',action:()=>{},dot:'#f0fdf4',border:'#86efac'},
+  ],Math.round(window.innerWidth/2-100),Math.round(window.innerHeight/2-60));
 }
 
 function showSubFnForDrop(parentNode,grpLabel,wordsTxt,wordArr,wordSpecs,cx,cy){
+  // Validation : bloquer l'empilement asyntaxique d'un seul mot
+  if(_wouldCreateAsyntacticSingleWordStack(parentNode.id, wordArr)){
+    _showAsyntacticWarning(); return;
+  }
   const parentGrp=parentNode.kind==='fg'?parentNode.grp:(parentNode.grp||'');
   const defaultFn=SUBFN4[parentGrp+':'+grpLabel]||'Compl.';
-  const allFns=[defaultFn,'CD','CI','Compl. du N','Modificateur','Compl. de la Prép.','Att. du Compl.','Compl. Circ.','Subordonnant','Pron. rel.'].filter((v,i,a)=>a.indexOf(v)===i);
+  const allFns=[defaultFn,'CD','CI','Compl. du N','Att. du sujet','Modificateur','Compl. de la Prép.','Att. du Compl.','Compl. Circ.'].filter((v,i,a)=>a.indexOf(v)===i);
   const items=allFns.map(fn=>mkItemColor(fn,'var(--fn-o-bg)','var(--fn-o-b)',()=>{
     snap('add');
     const fgId=addFG(parentNode.id,fn,grpLabel,parentNode.depth+1);
@@ -1646,6 +2126,20 @@ function dropMotNodes(nodeId,motIds){
   const target=S.nodes[nodeId]; if(!target) return;
   const mots=motIds.map(id=>S.nodes[id]).filter(Boolean);
   if(!mots.length){S.dragMotIds=null;return;}
+
+  // ── Special case: mot dropped/clicked onto its own direct parent class node ──
+  // Instead of restructuring, open the class-change menu for that class node.
+  if(target.kind==='c' && mots.length===1){
+    const mot=mots[0];
+    if(mot.parentId===nodeId){
+      // mot is already a direct child of this class bubble → open class menu
+      S.dragMotIds=null;
+      const fakeEv2=fakeEv(target);
+      openMenu(fakeEv2, nodeId);
+      return;
+    }
+  }
+
   const wordSpecs=mots.map(m=>mkWordSpec(m.mot,m.origIdx));
   const wordArr=wordSpecs.map(w=>w.text);
   const outerEl=document.getElementById('tree-outer');
@@ -1673,30 +2167,38 @@ function dropMotNodes(nodeId,motIds){
   if(target.kind==='fg'||target.kind==='g'){
     const parentGrp=target.kind==='fg'?target.grp:(target.grp||'');
     const subGrps=SUBGRP4GRP[parentGrp]||SUBGRP4GRP['default'];
+    // Check if the mots are already in the target group
+    function _isMotInGroup(motId, groupId){
+      const mn=S.nodes[motId]; if(!mn) return false;
+      let cur=mn.parentId;
+      while(cur){ if(cur===groupId) return true; cur=S.nodes[cur]?.parentId; }
+      return false;
+    }
+    const allAlreadyInGroup=mots.every(m=>_isMotInGroup(m.id,target.id));
     const grpItems=subGrps.map(g=>{
       const col=GRP_COLORS[g]||GRP_COLORS['default'];
       return mkItemColor('📦 Sous-groupe : '+g,col.bg,col.b,()=>showSubFnForDrop_Move(target,g,wordSpecs,mots,cx,cy));
     });
-    if(wordArr.length===1){
-      const clsItems=(CLS4GRP[parentGrp]||CLS4GRP['default']).map(c=>mkItemColor('🏷️ Classe : '+c,'var(--cls-bg)','var(--cls-b)',()=>{
-        snap('move');cleanupMotNodes(mots);
-        const cid=mkNode('c',{cls:c},target.id,target.depth+1);mkNode('m',{mot:wordSpecs[0].text,origIdx:wordSpecs[0].origIdx},cid,target.depth+2);
-        renderTree(cid);setHL('"'+wordArr[0]+'" déplacé.');clearAllSel();
-      }));
-      buildCtxAt('Déplacer dans '+parentGrp,[...grpItems,null,...clsItems],cx,cy);
-    } else {
-      grpItems.push(null);
-      grpItems.push(mkItemColor('🏷️ Classes individuelles','var(--cls-bg)','var(--cls-b)',()=>{
-        snap('move');cleanupMotNodes(mots);
-        wordSpecs.forEach(w=>{const cid=mkNode('c',{cls:'?'},target.id,target.depth+1);mkNode('m',{mot:w.text,origIdx:w.origIdx},cid,target.depth+2);});
-        renderTree(target.id);setHL('Mots déplacés.');clearAllSel();
-      }));
-      buildCtxAt('Déplacer dans '+parentGrp,grpItems,cx,cy);
-    }
+    // Structural only — NO class choices (class set later via class bubble)
+    const moveDirectItem=!allAlreadyInGroup?[mkItemColor('📥 Déplacer dans ce groupe','var(--abg)','var(--ac)',()=>{
+      snap('move');cleanupMotNodes(mots);
+      wordSpecs.forEach(w=>{const cid=mkNode('c',{cls:'?'},target.id,target.depth+1);mkNode('m',{mot:w.text,origIdx:w.origIdx},cid,target.depth+2);});
+      renderTree(target.id);setHL('Mot(s) déplacé(s) dans '+parentGrp+'.');clearAllSel();
+    }),null]:[];
+    buildCtxAt('Déplacer dans '+parentGrp,[...moveDirectItem,...grpItems],cx,cy);
     return;
   }
   if(target.kind==='c'){
     if(mots.length>1){setHL('⚠️ Un nœud de classe accepte un seul mot.');S.dragMotIds=null;return;}
+    // If the mot is already a child of this class node, open the class menu instead
+    if(mots[0]&&mots[0].parentId===nodeId){
+      S.dragMotIds=null;
+      openMenu(fakeEv(target), nodeId);
+      return;
+    }
+    // Block: if class already has a different mot child, refuse silently
+    const existingMot=target.children.map(c=>S.nodes[c]).find(ch=>ch?.kind==='m');
+    if(existingMot){S.dragMotIds=null;return;}
     snap('move');cleanupMotNodes(mots);
     mkNode('m',{mot:wordSpecs[0].text,origIdx:wordSpecs[0].origIdx},target.id,target.depth+1);
     renderTree();setHL('Mot déplacé.');clearAllSel();return;
@@ -1705,9 +2207,14 @@ function dropMotNodes(nodeId,motIds){
 }
 
 function showSubFnForDrop_Move(parentNode,grpLabel,wordSpecs,mots,cx,cy){
+  // Validation : bloquer l'empilement asyntaxique d'un seul mot
+  const wordArr=wordSpecs.map(w=>w.text);
+  if(_wouldCreateAsyntacticSingleWordStack(parentNode.id, wordArr)){
+    _showAsyntacticWarning(); return;
+  }
   const parentGrp=parentNode.kind==='fg'?parentNode.grp:(parentNode.grp||'');
   const defaultFn=SUBFN4[parentGrp+':'+grpLabel]||'Compl.';
-  const allFns=[defaultFn,'CD','CI','Compl. du N','Modificateur','Compl. de la Prép.','Att. du Compl.','Compl. Circ.'].filter((v,i,a)=>a.indexOf(v)===i);
+  const allFns=[defaultFn,'CD','CI','Compl. du N','Att. du sujet','Modificateur','Compl. de la Prép.','Att. du Compl.','Compl. Circ.'].filter((v,i,a)=>a.indexOf(v)===i);
   const items=allFns.map(fn=>mkItemColor(fn,'var(--fn-o-bg)','var(--fn-o-b)',()=>{
     snap('move');cleanupMotNodes(mots);
     const fgId=addFG(parentNode.id,fn,grpLabel,parentNode.depth+1);
@@ -1761,7 +2268,15 @@ function openMenu(e,id){const n=S.nodes[id];if(!n)return;const ev=e||fakeEv(n);
   else if(n.kind==='c') menuC(ev,n);
   else if(n.kind==='intro') menuIntro(ev,n);
 }
-function openAdd(e,id){openMenu(e,id);}
+function openAdd(e,id){
+  // Tree mot selection takes priority (synced S.selected would wrongly trigger dropWord)
+  if(S.tnoSel&&S.tnoSel.size>0){
+    const motIds=[...S.tnoSel].filter(mid=>S.nodes[mid]&&S.nodes[mid].kind==='m');
+    if(motIds.length>0){ dropMotNodes(id,motIds); return; }
+  }
+  if(S.selected.size>0){ dropWord(id); return; }
+  openMenu(e,id);
+}
 function fakeEv(n){
   // Use actual rendered position of the node element for accurate menu placement
   const el=document.getElementById('nd-'+n.id);
@@ -1812,7 +2327,7 @@ function menuP(ev,n){
   const stdItems=[
     addFn('Sujet','fn-s',['GN','Pron.','GVinf.','Psub compl.']),
     addFn('Prédicat','fn-p',['GV','GAdj','GN','GPrép']),
-    addFn('Compl. de P','fn-c',['GN','GAdv','GPrép','GVinf.','GAdj','Psub compl.','Psub rel.']),
+    addFn('Compl. de P','fn-c',['GN','GAdv','GPrép','GVinf.','GAdj','Psub compl.','Psub rel.','Psub. Compl. de P']),
   ];
   // Coordination: available on root P (not yet coordinated), or on pn in coord row (to add P3+)
   const showCoord = !isPN || inCoordRow;
@@ -1924,16 +2439,27 @@ function menuFG(ev,n){
 }
 
 function showChangeFnMenu(n,cx,cy){
-  const allFns=['Sujet','Prédicat','Compl. de P','CD','CI','Compl. du N','Modificateur','Att. du sujet','Att. du CD','Compl. de la Prép.','Compl. Adj.','Subordonnant','Pron. rel.'];
+  const allFns=['Sujet','Prédicat','Compl. de P','CD','CI','Compl. du N','Att. du sujet','Modificateur','Att. du CD','Compl. de la Prép.','Compl. Adj.'];
   const items=allFns.map(fn=>mkItemColor(fn,(FN_COLORS[fn]||FN_COLORS['default']).bg,(FN_COLORS[fn]||FN_COLORS['default']).b,
     ()=>{snap('chg');n.fn=fn;n.fnCls=FN_CLS[fn]||FN_CLS['default'];renderTree();setHL('Fonction changée en '+fn+'.');}));
   buildCtxAt('Changer la fonction',items,cx+12,cy+12,true);
 }
 
 function showChangeGrpMenu(n,cx,cy){
-  const grps=['GN','GV','GAdj','GPrép','GAdv','GVinf.','Pron.'];
-  const items=grps.map(g=>mkItemColor(g,(GRP_COLORS[g]||GRP_COLORS['default']).bg,(GRP_COLORS[g]||GRP_COLORS['default']).b,
-    ()=>{snap('chg');n.grp=g;n.grpCls=GRP_CLS[g]||GRP_CLS['default'];renderTree();setHL('Groupe changé en '+g+'.');}));
+  const regularGrps=['GN','GV','GAdj','GPrép','GAdv','GVinf.','Pron.'];
+  const psubTypes=['Psub rel.','Psub compl.','Psub. Compl. de P'];
+  const items=[
+    ...regularGrps.map(g=>mkItemColor(g,(GRP_COLORS[g]||GRP_COLORS['default']).bg,(GRP_COLORS[g]||GRP_COLORS['default']).b,
+      ()=>{snap('chg');n.kind='fg';n.grp=g;n.grpCls=GRP_CLS[g]||GRP_CLS['default'];delete n.pstype;renderTree();setHL('Groupe changé en '+g+'.');})),
+    null,
+    ...psubTypes.map(t=>mkItemColor(t,'var(--psub-bg)','var(--psub-b)',()=>{
+      snap('chg');
+      // Convertir fg → psub en conservant la fonction et les enfants
+      n.kind='psub'; n.pstype=t;
+      delete n.grp; delete n.grpCls;
+      renderTree(); setHL('Groupe changé en '+t+'.');
+    }))
+  ];
   buildCtxAt('Changer le groupe',items,cx+12,cy+12);
 }
 
@@ -1958,7 +2484,7 @@ function menuPsub(ev,n){
     mkItemColor('+ Pron. relatif','var(--conj-bg)','var(--conj-b)',()=>showPickWordForIntro(n,'Pron. rel.',cx,cy)),
     null,
     mkItemColor('🔁 Changer le type','var(--psub-bg)','var(--psub-b)',()=>{
-      const types=['Psub rel.','Psub compl.'];
+      const types=['Psub rel.','Psub compl.','Psub. Compl. de P'];
       const tItems=types.map(t=>mkItemColor(t,'var(--psub-bg)','var(--psub-b)',()=>{snap('chg');n.pstype=t;renderTree();setHL('Type changé en '+t+'.');} ));
       buildCtxAt('Type de Psub',tItems,cx+12,cy+12);
     }),
@@ -1989,7 +2515,16 @@ function menuIntro(ev,n){
 // ── C ──
 function menuC(ev,n){
   const cx=ev.clientX+8,cy=ev.clientY+8;
-  const items=ALL_CLASSES.map(c=>mkItemColor(c,'var(--cls-bg)','var(--cls-b)',()=>{
+  // Construire la liste des classes selon le groupe parent direct du nœud 'c'
+  let clsList=[...ALL_CLASSES];
+  const directPsubType=_getNearestDirectPsubType(n.id);
+  if(directPsubType==='Psub rel.'){
+    if(!clsList.includes('Subordonnant')) clsList.push('Subordonnant');
+    if(!clsList.includes('Pron. relatif')) clsList.push('Pron. relatif');
+  } else if(directPsubType==='Psub compl.'||directPsubType==='Psub. Compl. de P'){
+    if(!clsList.includes('Subordonnant')) clsList.push('Subordonnant');
+  }
+  const items=clsList.map(c=>mkItemColor(c,'var(--cls-bg)','var(--cls-b)',()=>{
     snap('chg'); n.cls=c;
     // Sync to phrase words
     const motChild=n.children.map(id=>S.nodes[id]).find(ch=>ch?.kind==='m');
@@ -2023,12 +2558,71 @@ function promoteConjNode(cNode){
   S.nodes[grandParentId].children.push(cNode.id);
 }
 
+// ── Retourne le pstype du Psub directement parent du nœud (profondeur 1 ou 2) ──
+// nodeId peut être un nœud 'c', 'fg', 'g' ou 'psub'.
+// Vérifie : le nœud lui-même, son parent, ou son grand-parent immédiat.
+function _getNearestDirectPsubType(nodeId){
+  const n=S.nodes[nodeId]; if(!n) return null;
+  // Le nœud lui-même est un psub
+  if(n.kind==='psub') return n.pstype;
+  // Le parent direct est un psub
+  if(n.parentId){
+    const p=S.nodes[n.parentId];
+    if(p&&p.kind==='psub') return p.pstype;
+    // Le grand-parent immédiat est un psub (fg/g à l'intérieur d'un psub)
+    if(p&&(p.kind==='fg'||p.kind==='g')&&p.parentId){
+      const gp=S.nodes[p.parentId];
+      if(gp&&gp.kind==='psub') return gp.pstype;
+    }
+  }
+  return null;
+}
+
+function _isInsidePsub(nodeId){
+  let cur=nodeId;
+  while(cur){
+    const nd=S.nodes[cur];
+    if(!nd) return false;
+    if(nd.kind==='psub') return true;
+    cur=nd.parentId;
+  }
+  return false;
+}
+
+function _isInsidePsubRel(nodeId){
+  // Returns true if the node is a child (direct or indirect) of a 'Psub rel.' psub node
+  let cur=nodeId;
+  while(cur){
+    const nd=S.nodes[cur];
+    if(!nd) return false;
+    if(nd.kind==='psub' && nd.pstype==='Psub rel.') return true;
+    cur=nd.parentId;
+  }
+  return false;
+}
+
 function showClassMenu(cx,cy,parentId,depth){
   const parentN=S.nodes[parentId]; if(!parentN) return;
-  const grpName=parentN.kind==='fg'?parentN.grp:(parentN.grp||'');
-  const validCls=CLS4GRP[grpName]||CLS4GRP['default'];
-  const items=validCls.map(c=>mkItemColor(c,'var(--cls-bg)','var(--cls-b)',()=>showWordPickForCls(cx+8,cy+8,parentId,depth,c)));
-  buildCtxAt('Choisir la classe',items,cx,cy);
+  // No class choice — create with cls='?', user picks class later via class bubble
+  const items=[];
+  if(S.selected.size){
+    const txt=[...S.selected].sort((a,b)=>a-b).map(i=>S.words[i]?.text).filter(Boolean).join(' ');
+    items.push(mkItemColor('✓ Sélection : "'+txt+'"','#fef9c3','#fbbf24',()=>{
+      snap('add');const cid=mkNode('c',{cls:'?'},parentId,depth);mkNode('m',{mot:txt},cid,depth+1);
+      renderTree(cid);setHL('Ajouté.');clearSel();
+    }));
+    items.push(null);
+  }
+  const inTree=getWordsInTree();
+  S.words.forEach(w=>{
+    if(w.isPunct||inTree.has(w.text)) return;
+    items.push(mkItemColor(w.text,'white','var(--mot-b)',()=>{
+      snap('add');const cid=mkNode('c',{cls:'?'},parentId,depth);mkNode('m',{mot:w.text,origIdx:w.idx},cid,depth+1);
+      renderTree(cid);setHL('"'+w.text+'" ajouté.');clearSel();
+    }));
+  });
+  if(!items.length) items.push(mkItemColor('Aucun mot disponible','#f0f0f0','#ccc',()=>{}));
+  buildCtxAt('Ajouter un mot',items,cx,cy,true);
 }
 
 function showWordPickForCls(cx,cy,parentId,depth,className){
@@ -2053,7 +2647,7 @@ function showSubGrpMenu(cx,cy,n){
   const options=SUBGRP4GRP[parentGrp]||SUBGRP4GRP['default'];
   const allowFn=(n.kind!=='fg'); // fg under fg is asyntactic
   const items=options.map(g=>{
-    if(g==='Psub rel.'||g==='Psub compl.'){
+    if(g==='Psub rel.'||g==='Psub compl.'||g==='Psub. Compl. de P'){
       return mkItemColor(g,'var(--psub-bg)','var(--psub-b)',()=>{
         snap('add');const id=mkNode('psub',{pstype:g},n.id,n.depth+1);renderTree(id);setHL(g+' ajouté.');
       });
@@ -2075,7 +2669,7 @@ function showSubGrpMenu(cx,cy,n){
 function showSubGrpFnMenu(parentN,grpLabel,cx,cy){
   const parentGrp=parentN.kind==='fg'?parentN.grp:(parentN.grp||'');
   const defaultFn=SUBFN4[parentGrp+':'+grpLabel]||'Compl.';
-  const allFns=[defaultFn,'CD','CI','Compl. du N','Modificateur','Compl. de la Prép.','Att. du Compl.','Compl. Circ.'].filter((v,i,a)=>a.indexOf(v)===i);
+  const allFns=[defaultFn,'CD','CI','Compl. du N','Att. du sujet','Modificateur','Compl. de la Prép.','Att. du Compl.','Compl. Circ.'].filter((v,i,a)=>a.indexOf(v)===i);
   const items=allFns.map(fn=>mkItemColor(fn,'var(--fn-o-bg)','var(--fn-o-b)',()=>{
     snap('add');const id=addFG(parentN.id,fn,grpLabel,parentN.depth+1);renderTree(id);setHL('Sous-groupe '+grpLabel+' ajouté.');
   }));
@@ -2115,16 +2709,23 @@ document.addEventListener('click',e=>{if(_ctxBlocked)return;const ctx=document.g
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeCtx();clearAll();}});
 
 function handleTreeBlankTap(ev){
+  if(window.getSelection) window.getSelection().removeAllRanges();
   const outer=document.getElementById('tree-outer');
   if(!outer || !outer.contains(ev.target)) return;
-  if(ev.target.closest('.tnode,#ctx,#tree-zoom-controls,.zoom-btn,.tree-toolbar,#annot-toolbar,.left-toggle,header,.pbar,.tab,.hbtn,#export-menu,#exportMenuBtn')) return;
+  if(ev.target.closest('.tnode,#ctx,#tree-zoom-controls,.zoom-btn,.tree-toolbar,#annot-toolbar,.left-toggle,header,.pbar,.tab,.hbtn,#export-menu,#exportMenuBtn,.assisted-hint')) return;
+  // Suppress the click that follows immediately after a rect-sel drag or a mot-drag
+  if(_rectSelDragged){ _rectSelDragged=false; return; }
+  if(_ctxBlocked) return;
   const ctx=document.getElementById('ctx');
   const hadCtx=!!(ctx&&ctx.classList.contains('open'));
-  const hadSel=!!(S.selected.size||S.tnoSel.size||S.pbSel.size);
   closeCtx();
   const exportMenu=document.getElementById('export-menu');
   if(exportMenu) exportMenu.style.display='none';
-  if(hadSel) clearAllSilent();
+  // N'effacer la sélection que si on clique dans le vide sans menu ouvert
+  if(!hadCtx){
+    const hadSel=!!(S.selected.size||S.tnoSel.size||S.pbSel.size);
+    if(hadSel) clearAllSilent();
+  }
 }
 
 // ══════════════════════════════════════════════════════
@@ -2326,6 +2927,7 @@ function renderWords(){
   initPbarSel(document.getElementById('pwords'));
   syncFsWordBar(); // always sync FS bar
   syncManipWordBar(); // always sync manip bar (also handles pwords-bottom)
+  _updateAddAllBtn();
 }
 
 // ── Word selection: rect-drag always active, click toggles, long-press = class picker ──
@@ -2390,7 +2992,13 @@ function initPbarSel(c){
     for(const el of els){
       if(!el) continue;
       const tn=el.classList&&el.classList.contains('tnode') ? el : (el.closest ? el.closest('.tnode') : null);
-      if(tn) return tn;
+      if(tn){
+        // Skip punct and motlink nodes — they must never intercept drops or clicks
+        const nid=tn.id?tn.id.replace('nd-',''):'';
+        const nd=S.nodes[nid];
+        if(nd&&(nd.kind==='punct'||nd.kind==='motlink')) continue;
+        return tn;
+      }
     }
     return null;
   }
@@ -2578,10 +3186,16 @@ function initPbarSel(c){
 
     // After rect selection (stayed in pbar), suppress click that follows
     if(mMode==='rect' && mMoved && !mLeftPbar) suppressNextMouseClick=true;
+    // Plain click on empty space (no drag) → deselect immediately
+    if(mMode==='rect' && !mMoved){
+      if(S.selected.size>0){ S.selected=new Set(); _pbarUpdateSelDOM(); updSel(); }
+      suppressNextMouseClick=true; // suppress the duplicate click event too
+    }
     mLeftPbar=false;
     mDown=false; mMode=null; mIdx=null; mMoved=false; updSel();
   }
   function onClick(e){
+    closeCtx();
     // Suppress click that naturally follows a drag/rect (must check FIRST)
     if(suppressNextMouseClick){
       suppressNextMouseClick=false;
@@ -2590,6 +3204,11 @@ function initPbarSel(c){
       return;
     }
     if(Date.now()-lastTouchTs<700){
+      // Still allow deselection on empty space click even after recent touch
+      const idx=getIdxFromTarget(e.target);
+      if(idx===null && S.selected.size>0){
+        S.selected=new Set(); _pbarUpdateSelDOM(); updSel();
+      }
       e.preventDefault();
       e.stopPropagation();
       return;
@@ -2610,6 +3229,7 @@ function initPbarSel(c){
   let tLeftPbar=false;
 
   function onTS(e){
+    closeCtx();
     if(e.touches.length!==1) return;
     if(!c.contains(e.target)) return;
     const t=e.touches[0];
@@ -2695,6 +3315,9 @@ function initPbarSel(c){
     } else if(tMode==='rect' && tMoved && tLeftPbar && S.selected.size>0){
       _ctxBlocked=true; setTimeout(()=>{_ctxBlocked=false;},120);
       doDropAtPoint(t.clientX,t.clientY,lastHover);
+    } else if(tMode==='rect' && !tMoved){
+      // Tap on empty space in pbar → deselect all
+      if(S.selected.size>0){ S.selected=new Set(); _pbarUpdateSelDOM(); updSel(); }
     }
     tLeftPbar=false;
     lastTouchTs=Date.now();
@@ -2710,6 +3333,23 @@ function initPbarSel(c){
   c.addEventListener('touchstart',onTS,{passive:true});
   c.addEventListener('touchmove',onTM,{passive:false});
   c.addEventListener('touchend',onTE);
+
+  // Also handle clicks/taps on the parent .pbar padding/label area for deselection
+  const pbarParent=c.closest('.pbar');
+  if(pbarParent && !pbarParent._pbarDeselectBound){
+    pbarParent._pbarDeselectBound=true;
+    pbarParent.addEventListener('click',function(ev){
+      // Only deselect if click is NOT on a word chip and NOT on an action button
+      if(ev.target.closest('[data-idx],.pabtn,.selinfo,button')) return;
+      if(S.selected.size>0){ S.selected=new Set(); _pbarUpdateSelDOM(); updSel(); }
+    });
+    pbarParent.addEventListener('touchend',function(ev){
+      if(ev.target.closest('[data-idx],.pabtn,.selinfo,button')) return;
+      if(S.selected.size>0){
+        setTimeout(()=>{ if(S.selected.size>0){ S.selected=new Set(); _pbarUpdateSelDOM(); updSel(); } },50);
+      }
+    },{passive:true});
+  }
 
   c._pbarCleanup=()=>{
     c.removeEventListener('mousedown',onMD);
@@ -2742,7 +3382,6 @@ function updSel(){
   if(!n){box.classList.remove('on');
     const fsBox=document.getElementById('selinfo-fs'); if(fsBox) fsBox.style.display='none';
     const mBox=document.getElementById('selinfo-manip'); if(mBox) mBox.classList.remove('on');
-    const bBox=document.getElementById('selinfo-bottom'); if(bBox) bBox.classList.remove('on');
     return;}
   box.classList.add('on');
   const txt=[...S.selected].sort((a,b)=>a-b).map(i=>S.words[i]?.text).filter(Boolean).join(' ');
@@ -2757,11 +3396,7 @@ function updSel(){
   const mTxt=document.getElementById('seltext-manip');
   const mCnt=document.getElementById('selcount-manip');
   if(mBox){mBox.classList.add('on');if(mTxt)mTxt.textContent=txt;if(mCnt)mCnt.textContent=n+' élément(s)';}
-  // Sync bottom pbar selinfo
-  const bBox=document.getElementById('selinfo-bottom');
-  const bTxt=document.getElementById('seltext-bottom');
-  const bCnt=document.getElementById('selcount-bottom');
-  if(bBox){bBox.classList.add('on');if(bTxt)bTxt.textContent=txt;if(bCnt)bCnt.textContent=n+' élément(s)';}
+  // Sync bottom pbar selinfo — removed (selinfo-bottom no longer exists)
 }
 function clearSel(){
   S.selected=new Set();
@@ -2914,18 +3549,24 @@ function initAnnotCanvas(){
   window._redrawAnnot=function(paths){
     const ctx=canvas.getContext('2d');
     ctx.clearRect(0,0,canvas.width,canvas.height);
-    const sc=S.treeScale||1;
-    const dpr=window.devicePixelRatio||1;
+    const natW=canvas._naturalW||canvas.width;
+    const natH=canvas._naturalH||canvas.height;
     ctx.save();
-    ctx.scale(sc*dpr,sc*dpr);
+    ctx.scale(canvas.width/natW, canvas.height/natH);
     paths.forEach(p=>_drawPath(ctx,p));
     ctx.restore();
   };
 
   function getCanvasPos(e){
-    const r=canvas.getBoundingClientRect();
-    const sc=S.treeScale||1;
-    return{x:(e.clientX-r.left)/sc,y:(e.clientY-r.top)/sc};
+    // Perfect calibration via getBoundingClientRect (includes ALL CSS transforms)
+    const rect=canvas.getBoundingClientRect();
+    if(!rect.width||!rect.height) return {x:0,y:0};
+    const natW=canvas._naturalW||canvas.width;
+    const natH=canvas._naturalH||canvas.height;
+    return{
+      x:(e.clientX-rect.left)/rect.width*natW,
+      y:(e.clientY-rect.top)/rect.height*natH
+    };
   }
 
   canvas.addEventListener('pointerdown',e=>{
@@ -3310,6 +3951,7 @@ function toggleBoitesClasses(){
   const btn = document.getElementById('bx-cls-toggle');
   if(btn) btn.textContent = _boitesShowClasses ? '👁 Masquer les classes' : '👁 Afficher les classes';
   renderBoites();
+  // realignment is called inside renderBoites via requestAnimationFrame
 }
 
 function renderBoites(){
@@ -3367,7 +4009,7 @@ function renderBoites(){
     const realCh = n.children.filter(c => nodes[c] && nodes[c].kind !== 'motlink' && nodes[c].kind !== 'punct');
     const childrenHTML = realCh.map(c => buildBox(c)).join('');
     if(n.kind === 'p' || n.kind === 'pn'){
-      return `<div class="bxw-p"><div class="bxw-p-lbl">${n.label||'P'}</div><div class="bxw-inner">${childrenHTML}</div></div>`;
+      return `<div class="bxw-p"><div class="bxw-p-lbl">${n.label||'P'}</div><div class="bxw-p-inner">${childrenHTML}</div></div>`;
     }
     if(n.kind === 'fg'){
       const sfx = (S.coordRoots && P_LEVEL_FNS_B.includes(n.fn)) ? getCoordSuffixBoites(id) : '';
@@ -3407,6 +4049,85 @@ function renderBoites(){
     html = buildBox(S.rootId);
   }
   canvas.innerHTML = html;
+  // Alignement vertical : tous les mots sur une ligne commune (baseline la plus profonde)
+  // Double rAF : 2 cycles de peinture pour que le layout soit entièrement stabilisé avant mesure
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    _postAlignBoites();
+    requestAnimationFrame(_fitBoitesToViewport);
+  }));
+}
+
+// ── Aligner tous les mots de la vue Boîtes sur une ligne commune ──────────
+// Règle : tous les mots déjà dans l'arbre terminent sur UNE SEULE ligne
+// dictée par les boîtes les plus profondes (plus grande imbrication = mot le plus
+// haut à l'écran dans getBoundingClientRect = valeur bottom minimale).
+function _postAlignBoites(){
+  const canvas = document.getElementById('boites-canvas');
+  if(!canvas) return;
+
+  // 1. Réinitialiser tout ajustement précédent
+  canvas.querySelectorAll('.bx-word-wrap').forEach(el => {
+    el.style.paddingBottom = '';
+  });
+
+  // 2. Collecter tous les .bx-word visibles et leurs wraps
+  const wordWraps = Array.from(canvas.querySelectorAll('.bx-word-wrap'));
+  if(wordWraps.length < 2) return;
+
+  const data = wordWraps.map(wrap => {
+    const word = wrap.querySelector('.bx-word');
+    if(!word) return null;
+    const rect = word.getBoundingClientRect();
+    return { wrap, bottom: rect.bottom };
+  }).filter(Boolean);
+
+  if(data.length < 2) return;
+
+  // 3. La ligne commune = le nœud le plus profond (le plus haut à l'écran,
+  //    donc le bottom pixel le plus PETIT — car les niveaux d'imbrication ajoutent
+  //    du padding au-dessus et poussent le mot vers le haut sur l'écran).
+  const minBottom = Math.min(...data.map(d => d.bottom));
+
+  // 4. Pour les mots plus bas à l'écran (valeur bottom > minBottom) :
+  //    ajouter padding-bottom au wrap afin que le mot remonte à la ligne commune.
+  //    padding-bottom déplace le mot vers le haut dans un conteneur justify-content:flex-end
+  //    tout en gardant le bas du wrap ancré (align-self:flex-end sur le parent).
+  data.forEach(({ wrap, bottom }) => {
+    const diff = Math.round((bottom - minBottom) * 100) / 100;
+    if(diff > 0.5) {
+      wrap.style.paddingBottom = diff + 'px';
+    }
+  });
+}
+
+// ── Fit boîtes content centered in viewport ──────────────────
+function _fitBoitesToViewport(){
+  const outer=document.getElementById('boites-outer');
+  const canvas=document.getElementById('boites-canvas');
+  if(!outer||!canvas||!canvas.children.length) return;
+  // Reset previous transform to measure natural size
+  canvas.style.transform='';
+  canvas.style.transformOrigin='0 0';
+  // Wait one frame for layout to settle after transform reset
+  requestAnimationFrame(()=>{
+    const cW=canvas.scrollWidth;
+    const cH=canvas.scrollHeight;
+    const oW=outer.clientWidth;
+    const oH=outer.clientHeight;
+    if(!cW||!cH||!oW||!oH) return;
+    const PAD=20;
+    const availW=oW-PAD*2;
+    const availH=oH-PAD*2;
+    const scaleX=availW/cW;
+    const scaleY=availH/cH;
+    const scale=Math.min(scaleX,scaleY,2.0); // cap at 2x for readability
+    const drawW=cW*scale;
+    const drawH=cH*scale;
+    const tx=Math.round((oW-drawW)/2);
+    const ty=Math.round((oH-drawH)/2);
+    canvas.style.transformOrigin='0 0';
+    canvas.style.transform=`translate(${tx}px,${ty}px) scale(${scale})`;
+  });
 }
 
 function boitesSetClass(wordIdx, event){
@@ -3416,73 +4137,108 @@ function boitesSetClass(wordIdx, event){
   showWordClassPickMenu(wordIdx, rect.left, rect.bottom + 4);
 }
 
-function exportBoitesPNG(){
+// ── Shared: capture boites canvas as high-res image ─────────────────────
+function _captureBoitesCanvas(callback){
   const outer=document.getElementById('boites-outer');
   const canvas=document.getElementById('boites-canvas');
-  const logoImg=window._arboriaLogoImg;
   if(!canvas||!canvas.children.length){setHL("Construisez d'abord un arbre.");return;}
   if(!Object.values(S.nodes).some(n=>n.kind==='m')){setHL("Construisez d'abord un arbre.");return;}
-  setHL("Génération de l'image…");
+  // Save and reset transform so we capture natural (unscaled) content
+  const prevTransform=canvas.style.transform||'';
+  const prevOrigin=canvas.style.transformOrigin||'';
+  canvas.style.transform='';
+  canvas.style.transformOrigin='';
   const prevST=outer?outer.scrollTop:0, prevSL=outer?outer.scrollLeft:0;
   if(outer){outer.scrollTop=0;outer.scrollLeft=0;}
-
-  // Wait for scroll reset to settle
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    const SC=2, WMARK_H=52, MIN_R=16/9;
-    // Measure the ACTUAL rendered content dimensions
-    const rect=canvas.getBoundingClientRect();
-    const cw=Math.max(Math.round(rect.width),100);
-    const ch=Math.max(Math.round(rect.height),100);
-
-    html2canvas(canvas,{backgroundColor:'#ffffff',scale:SC,useCORS:true,logging:false,allowTaint:true,scrollX:0,scrollY:0,width:cw,height:ch})
-    .then(cv=>{
+    const SC=2;
+    const cw=Math.max(Math.round(canvas.scrollWidth),100);
+    const ch=Math.max(Math.round(canvas.scrollHeight),100);
+    html2canvas(canvas,{
+      backgroundColor:'#ffffff',scale:SC,useCORS:true,logging:false,
+      allowTaint:true,scrollX:0,scrollY:0,width:cw,height:ch,
+      windowWidth:cw,windowHeight:ch
+    }).then(cv=>{
+      // Restore transform and scroll
+      canvas.style.transform=prevTransform;
+      canvas.style.transformOrigin=prevOrigin;
       if(outer){outer.scrollTop=prevST;outer.scrollLeft=prevSL;}
-
-      // Build 16:9 canvas - content fills most of the space
-      // Scale content to fill 16:9 with small padding
-      const outerW=outer?outer.clientWidth:800;
-      const outerH=outer?outer.clientHeight:600;
-
-      // Content at SC=2 scale — physical content is cv.width/SC x cv.height/SC
-      const contentW=cv.width/SC, contentH=cv.height/SC;
-
-      // Target: 16:9 canvas, content scaled to fill it with padding
-      const PAD=32;
-      // Fit content into 16:9 output area
-      let outW, outH;
-      const targetRatio=MIN_R;
-      // Make canvas that fits content with padding in 16:9
-      outW=Math.max((contentW+PAD*2)*SC, 800*SC);
-      outH=Math.max((contentH+PAD*2+WMARK_H)*SC, Math.round(outW/targetRatio));
-      if(outW/outH < targetRatio){ outW=Math.round(outH*targetRatio); }
-
-      // Scale content to fill width nicely
-      const availW=outW-PAD*SC*2;
-      const availH=outH-WMARK_H*SC-PAD*SC*2;
-      const scaleToFit=Math.min(availW/cv.width, availH/cv.height, 2.0);
-      const drawW=Math.round(cv.width*scaleToFit);
-      const drawH=Math.round(cv.height*scaleToFit);
-      const drawX=Math.round((outW-drawW)/2);
-      const drawY=Math.round((outH-WMARK_H*SC-drawH)/2);
-
-      const out=document.createElement('canvas');
-      out.width=outW; out.height=outH;
-      const ctx=out.getContext('2d');
-      ctx.fillStyle='#ffffff';
-      ctx.fillRect(0,0,outW,outH);
-      ctx.drawImage(cv,0,0,cv.width,cv.height,drawX,drawY,drawW,drawH);
-      drawExportWatermark(ctx,outW,outH,logoImg,WMARK_H*SC);
-
-      const link=document.createElement('a');
-      link.download='arboria-boites.png';
-      link.href=out.toDataURL('image/png');
-      link.click();
-      setHL('Image exportée.');
+      callback(cv,SC);
     }).catch(err=>{
+      canvas.style.transform=prevTransform;
+      canvas.style.transformOrigin=prevOrigin;
       if(outer){outer.scrollTop=prevST;outer.scrollLeft=prevSL;}
       setHL("Erreur d'exportation: "+err.message);
     });
   }));
+}
+
+function exportBoitesPNG(){
+  setHL("Génération de l'image…");
+  _captureBoitesCanvas((cv,SC)=>{
+    const logoImg=window._arboriaLogoImg;
+    const PAD=20, WMARK_H=48;
+    const contentW=cv.width, contentH=cv.height;
+    const outW=Math.max(contentW+PAD*2, 1600);
+    const outH=Math.max(contentH+PAD*2+WMARK_H*SC, Math.round(outW*9/16));
+    const availW=outW-PAD*2;
+    const availH=outH-WMARK_H*SC-PAD*2;
+    const scale=Math.min(availW/contentW, availH/contentH); // No 1.0 cap
+    const drawW=Math.round(contentW*scale);
+    const drawH=Math.round(contentH*scale);
+    const drawX=Math.round((outW-drawW)/2);
+    const drawY=Math.round((outH-WMARK_H*SC-drawH)/2);
+    const out=document.createElement('canvas');
+    out.width=outW; out.height=outH;
+    const ctx=out.getContext('2d');
+    ctx.fillStyle='#ffffff';
+    ctx.fillRect(0,0,outW,outH);
+    ctx.drawImage(cv,0,0,contentW,contentH,drawX,drawY,drawW,drawH);
+    drawExportWatermark(ctx,outW,outH,logoImg,WMARK_H*SC);
+    const link=document.createElement('a');
+    link.download='arboria-boites.png';
+    link.href=out.toDataURL('image/png');
+    link.click();
+    setHL('Image exportée.');
+  });
+}
+
+function exportBoitesPDF(){
+  setHL("Génération du PDF…");
+  _captureBoitesCanvas((cv,SC)=>{
+    const logoImg=window._arboriaLogoImg;
+    const PAD=16, WMARK_H=40;
+    const contentW=cv.width/SC, contentH=cv.height/SC;
+    const PAGE_W=1100, PAGE_H=850;
+    const availW=PAGE_W-PAD*2, availH=PAGE_H-WMARK_H-PAD*2;
+    const scale=Math.min(availW/contentW, availH/contentH); // No 1.0 cap
+    const drawW=Math.round(contentW*scale);
+    const drawH=Math.round(contentH*scale);
+    const drawX=Math.round((PAGE_W-drawW)/2);
+    const drawY=Math.round((PAGE_H-WMARK_H-drawH)/2);
+    const out=document.createElement('canvas');
+    out.width=PAGE_W*2; out.height=PAGE_H*2; // @2x for sharpness
+    const ctx=out.getContext('2d');
+    ctx.scale(2,2);
+    ctx.fillStyle='#ffffff';
+    ctx.fillRect(0,0,PAGE_W,PAGE_H);
+    ctx.drawImage(cv,0,0,cv.width,cv.height,drawX,drawY,drawW,drawH);
+    drawExportWatermark(ctx,PAGE_W,PAGE_H,logoImg,WMARK_H);
+    const dataUrl=out.toDataURL('image/png');
+    const html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>Arboria — Boîtes</title>'
+      +'<style>@page{size:letter landscape;margin:0}'
+      +'*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}'
+      +'html,body{margin:0;padding:0;background:#fff!important;overflow:hidden}'
+      +'body{display:flex;align-items:center;justify-content:center;width:1100px;height:850px}'
+      +'img{display:block;width:'+PAGE_W+'px;height:'+PAGE_H+'px;max-width:100%;max-height:100%;}'
+      +'</style></head><body><img src="'+dataUrl+'">'
+      +'<script>window.onload=function(){setTimeout(function(){window.print();setTimeout(function(){window.close();},400);},200);};<\/script>'
+      +'</body></html>';
+    const w=window.open('about:blank','_blank');
+    if(!w){alert('Fenêtre bloquée — autorisez les pop-ups.');return;}
+    w.document.open(); w.document.write(html); w.document.close();
+    setHL('PDF prêt à imprimer.');
+  });
 }
 
 // ══════════════════════════════════════════════════════
@@ -3517,14 +4273,43 @@ function applyEnc(t){
   document.getElementById('mr-encadrement').innerHTML=html;
 }
 
+function _isProperNoun(word){
+  // A word is likely a proper noun if it's capitalized AND is NOT the first word of the phrase
+  if(!word||!S.words||!S.words.length) return false;
+  if(word.charAt(0)!==word.charAt(0).toUpperCase()) return false;
+  // If it's the first word, it might just be sentence-capitalized
+  const firstNonPunct=S.words.find(w=>!w.isPunct);
+  if(firstNonPunct&&firstNonPunct.text===word) return false;
+  return true;
+}
+
 function applyDep(pos){
   if(!S.words.length)return;const idx=getSel();if(!idx.length){noSel('deplacement');return;}
   const selTxt=getSelTxt();
   const rest=S.words.filter((_,i)=>!S.selected.has(i)).map(w=>w.text);
   let arr;
-  if(pos==='d'){arr=[...selTxt.map(t=>`<span class="m-hi">${t}</span>`),...rest.map((t,i)=>i===0?lowerFirst(t):t)];}
-  else{arr=[...rest,...selTxt.map(t=>`<span class="m-hi">${t}</span>`)];}
-  if(arr.length&&typeof arr[0]==='string') arr[0]=capitalFirst(arr[0]);
+  if(pos==='d'){
+    // Move to beginning: selected highlighted first, then rest
+    const hiItems=selTxt.map(t=>`<span class="m-hi">${t}</span>`);
+    const restItems=rest.map((t,i)=>i===0&&!_isProperNoun(t)?lowerFirst(t):t);
+    arr=[...hiItems,...restItems];
+    // Capitalize the first highlighted word
+    if(hiItems.length){
+      const firstSel=selTxt[0];
+      arr[0]=`<span class="m-hi">${capitalFirst(firstSel)}</span>`;
+    }
+  } else {
+    // Move to end: rest first, then selected highlighted
+    const restItems=[...rest];
+    const hiItems=selTxt.map((t,i)=>{
+      // If the first selected word was at sentence start, lowercase it (unless proper noun)
+      if(i===0&&S.selected.has(0)&&!_isProperNoun(t)) return `<span class="m-hi">${lowerFirst(t)}</span>`;
+      return `<span class="m-hi">${t}</span>`;
+    });
+    arr=[...restItems,...hiItems];
+    // Capitalize the first word of the new arrangement
+    if(arr.length&&typeof arr[0]==='string') arr[0]=capitalFirst(arr[0]);
+  }
   document.getElementById('mr-deplacement').innerHTML=arr.join(' ')+S.punct;
 }
 
@@ -3601,6 +4386,12 @@ function toggleRectSel(){
     document.querySelectorAll('.tnode').forEach(el=>el.style.outline='');
     S.tnoSel=new Set();
     setHL('Mode sélection rectangle actif.');
+  } else {
+    _rectSelActive=false;
+    _deactivateRectSelVisual();
+    document.querySelectorAll('.tnode').forEach(el=>el.style.outline='');
+    S.tnoSel=new Set();
+    setHL('Mode sélection rectangle désactivé.');
   }
 }
 
@@ -3611,6 +4402,12 @@ function toggleHandMode(){
   if(_handModeActive){
     _rectSelActive=false;
     _deactivateRectSelVisual();
+    // Deactivate ALL annotation tools
+    S.annot.active=false;
+    S.annot.drawing=false;
+    const ac=document.getElementById('annot-canvas');
+    if(ac) ac.classList.remove('active');
+    document.querySelectorAll('.atbtn').forEach(b=>b.classList.remove('active'));
     if(outer) outer.classList.add('hand-mode');
     if(btn) btn.classList.add('sel-active');
     setHL('Outil main actif — glissez pour déplacer la vue.');
@@ -3621,6 +4418,8 @@ function toggleHandMode(){
     setHL('Mode sélection rectangle actif.');
   }
 }
+
+let _rectSelDragged=false; // flag to suppress the click-after-mouseup that would clear selection
 
 (function initRectSel(){
   const outer=document.getElementById('tree-outer');
@@ -3673,7 +4472,7 @@ function toggleHandMode(){
     if(!_rectSelActive) return;
     if(e.button!==0) return;
     // If clicking directly on a node, don't intercept — let node handle it
-    if(e.target.closest('.tnode,.ndel,.nplus')) return;
+    if(e.target.closest('.tnode,.ndel,.nplus,#tree-zoom-controls,.zoom-btn,.tree-toolbar,.hbtn,.pabtn,.atbtn,button,input,select,label')) return;
     e.preventDefault();
     e.stopImmediatePropagation();
     dragging=true;
@@ -3703,21 +4502,31 @@ function toggleHandMode(){
     const p=getCursorPos(e.clientX,e.clientY);
     const rx1=Math.min(sx,p.x), ry1=Math.min(sy,p.y);
     const rx2=rx1+Math.abs(p.x-sx), ry2=ry1+Math.abs(p.y-sy);
+    // Clear live-highlight outlines first
+    document.querySelectorAll('#tree-canvas .tnode').forEach(el=>el.style.outline='');
     if(rx2-rx1>=6&&ry2-ry1>=6){
-      const sel=getNodesInRect(rx1,ry1,rx2,ry2);
+      // Only select 'm' (mot) nodes
+      const all=getNodesInRect(rx1,ry1,rx2,ry2);
+      const sel=all.filter(id=>S.nodes[id]&&S.nodes[id].kind==='m');
       if(sel.length){
         S.tnoSel=new Set(sel);
-        document.querySelectorAll('.tnode').forEach(el=>{
-          el.style.outline=sel.includes(el.id.replace('nd-',''))?'3px solid var(--ac)':'';
+        // Apply persistent yellow mot-sel class
+        document.querySelectorAll('#tree-canvas .tnode').forEach(el=>{
+          const id=el.id.replace('nd-','');
+          const n=S.nodes[id];
+          if(n&&n.kind==='m') el.classList.toggle('mot-sel',S.tnoSel.has(id));
         });
+        // Sync to PBAR (all word bars) and selection state
         syncSelFromTno();
-        setHL(sel.length+' bulle(s) sélectionnée(s).');
+        _pbarUpdateSelDOM();
+        updTnoSelHint();
+        setHL(sel.length+' mot(s) sélectionné(s).');
+        // Suppress the click event that immediately follows mouseup (would clear selection via handleTreeBlankTap)
+        _rectSelDragged=true;
+        setTimeout(()=>{ _rectSelDragged=false; }, 200);
       } else {
-        document.querySelectorAll('.tnode').forEach(el=>el.style.outline='');
-        setHL('Aucune bulle dans le rectangle.');
+        setHL('Aucun mot dans le rectangle.');
       }
-    } else {
-      document.querySelectorAll('.tnode').forEach(el=>el.style.outline='');
     }
     deactivate();
   });
@@ -3725,8 +4534,8 @@ function toggleHandMode(){
   outer.addEventListener('touchstart',function(e){
     if(!_rectSelActive) return;
     if(e.touches.length!==1) return;
-    // Don't intercept touches on mot-nodes (they handle their own drag) or zoom controls
-    if(e.target.closest('.nk-m,.pb-word,#tree-zoom-controls,.zoom-btn')) return;
+    // Don't intercept touches on tree nodes (they handle their own interaction) or zoom controls
+    if(e.target.closest('.tnode,.pb-word,#tree-zoom-controls,.zoom-btn')) return;
     e.preventDefault(); e.stopImmediatePropagation();
     dragging=true;
     const p=getCursorPos(e.touches[0].clientX,e.touches[0].clientY);
@@ -3755,11 +4564,34 @@ function toggleHandMode(){
     const p=getCursorPos(t.clientX,t.clientY);
     const rx1=Math.min(sx,p.x),ry1=Math.min(sy,p.y);
     const rx2=rx1+Math.abs(p.x-sx),ry2=ry1+Math.abs(p.y-sy);
-    if(rx2-rx1>=6&&ry2-ry1>=6){
-      const sel=getNodesInRect(rx1,ry1,rx2,ry2);
-      if(sel.length){ S.tnoSel=new Set(sel); syncSelFromTno(); document.querySelectorAll('.tnode').forEach(el=>{ el.style.outline=sel.includes(el.id.replace('nd-',''))?'3px solid var(--ac)':''; }); setHL(sel.length+' bulle(s) sélectionnée(s).'); }
-      else{ document.querySelectorAll('.tnode').forEach(el=>el.style.outline=''); setHL('Aucune bulle dans le rectangle.'); }
-    } else { document.querySelectorAll('.tnode').forEach(el=>el.style.outline=''); }
+    // Effacer tous les outlines temporaires
+    document.querySelectorAll('#tree-canvas .tnode').forEach(el=>el.style.outline='');
+    // Convertir en vraie sélection finale (même pour petits rectangles ≥4px)
+    if(rx2-rx1>=4&&ry2-ry1>=4){
+      const all=getNodesInRect(rx1,ry1,rx2,ry2);
+      const sel=all.filter(id=>S.nodes[id]&&S.nodes[id].kind==='m');
+      if(sel.length){
+        // Vraie sélection persistante — identique à la sélection normale
+        S.tnoSel=new Set(sel);
+        document.querySelectorAll('#tree-canvas .tnode').forEach(el=>{
+          const id=el.id.replace('nd-','');
+          const n=S.nodes[id];
+          if(n&&n.kind==='m'){
+            if(S.tnoSel.has(id)){
+              el.classList.add('mot-sel');
+              el.style.outline='';
+            } else {
+              el.classList.remove('mot-sel');
+              el.style.outline='';
+            }
+          }
+        });
+        syncSelFromTno();
+        _pbarUpdateSelDOM();
+        updTnoSelHint();
+        setHL(sel.length+' mot(s) sélectionné(s).');
+      } else { setHL('Aucun mot dans le rectangle.'); }
+    }
     deactivate();
   });
 })();
@@ -3769,15 +4601,39 @@ function toggleHandMode(){
 
 
 function snap(t){
-  S.history.push({t,nodes:JSON.parse(JSON.stringify(S.nodes)),nid:S.nid,sel:new Set(S.selected),coordRoots:S.coordRoots?[...S.coordRoots]:null,rootId:S.rootId});
+  // Exclure les nœuds virtuels (_autoCommaCP) du snapshot
+  const nodesForSnap={};
+  Object.entries(S.nodes).forEach(([id,n])=>{if(!n._autoCommaCP) nodesForSnap[id]=n;});
+  S.history.push({
+    t,
+    nodes:JSON.parse(JSON.stringify(nodesForSnap)),
+    nid:S.nid,
+    sel:new Set(S.selected),
+    coordRoots:S.coordRoots?[...S.coordRoots]:null,
+    rootId:S.rootId,
+    // Save phrase state for full undo (example load, new phrase)
+    phrase:S.phrase||'',
+    words:S.words?JSON.parse(JSON.stringify(S.words)):[],
+    punct:S.punct||'',
+    punctChars:S.punctChars?JSON.parse(JSON.stringify(S.punctChars)):[]
+  });
   if(S.history.length>60)S.history.shift();
 }
 function undo(){
   if(!S.history.length)return;
   const h=S.history.pop();
-  // Preserve current phrase and words — undo only affects tree structure
   S.nodes=h.nodes;S.nid=h.nid;S.selected=h.sel;
   S.coordRoots=h.coordRoots||null; S.rootId=h.rootId||'root';
+  // Restore phrase state if it was saved (enables undo of example load / new phrase)
+  if(h.phrase!==undefined){
+    S.phrase=h.phrase;
+    S.words=h.words||[];
+    S.punct=h.punct||'';
+    S.punctChars=h.punctChars||[];
+    // Update the phrase input to match
+    const inp=document.getElementById('phraseInput');
+    if(inp) inp.value=S.phrase;
+  }
   renderWords();renderTree();renderClasses();setHL('Annulé : '+h.t+'.');
 }
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();undo();}});
@@ -3805,11 +4661,14 @@ function syncSelFromTno(){
     }
   });
   S.selected=newSel;
-  // Update pword DOM without re-running initLasso (use direct classList)
-  const c=document.getElementById('pwords');
-  if(c) c.querySelectorAll('[data-idx]').forEach(el=>{
-    const i=parseInt(el.dataset.idx);
-    if(!isNaN(i)) el.classList.toggle('sel',S.selected.has(i));
+  // Point 45: sync ALL pword bar containers, not just pwords
+  ['pwords','pwords-fs','pwords-bottom','pwords-manip'].forEach(bid=>{
+    const c=document.getElementById(bid);
+    if(!c) return;
+    c.querySelectorAll('[data-idx]').forEach(el=>{
+      const i=parseInt(el.dataset.idx);
+      if(!isNaN(i)) el.classList.toggle('sel',S.selected.has(i));
+    });
   });
   updSel();
 }
@@ -3937,8 +4796,36 @@ function fitTree(){
       _applyTransform();
     }
   },{passive:true});
-  outer.addEventListener('touchend',()=>{touchPanStart=null;});
+  outer.addEventListener('touchend',e=>{touchPanStart=null;});
   outer.addEventListener('click',handleTreeBlankTap);
+  // Deselect on touch tap in blank area of tree-outer (Fix 14)
+  outer.addEventListener('touchend',function(e){
+    if(e.changedTouches.length!==1) return;
+    const t=e.changedTouches[0];
+    const target=document.elementFromPoint(t.clientX,t.clientY)||e.target;
+    if(target.closest('.tnode,#ctx,#tree-zoom-controls,.zoom-btn,.tree-toolbar,#annot-toolbar,.left-toggle,header,.pbar,.tab,.hbtn,#export-menu,#exportMenuBtn,.assisted-hint')) return;
+    // Close context menu if open
+    const ctx=document.getElementById('ctx');
+    const hadCtx=!!(ctx&&ctx.classList.contains('open'));
+    if(hadCtx){ closeCtx(); return; }
+    // Deselect all
+    const hadSel=!!(S.selected.size||S.tnoSel.size||S.pbSel.size);
+    if(hadSel) clearAllSilent();
+  },{passive:true});
+  // Fermer le menu en tactile lors d'un tap dans le vide
+  outer.addEventListener('touchend',e=>{
+    if(e.changedTouches.length!==1) return;
+    const ctx=document.getElementById('ctx');
+    if(ctx&&ctx.classList.contains('open')){
+      const t=e.changedTouches[0];
+      const fakeEv={target:document.elementFromPoint(t.clientX,t.clientY)||e.target, closest:function(sel){return this.target&&this.target.closest?this.target.closest(sel):null}};
+      // Utiliser directement la cible du touch
+      const target=document.elementFromPoint(t.clientX,t.clientY)||e.target;
+      if(!target.closest('.tnode,#ctx,#tree-zoom-controls,.zoom-btn,.tree-toolbar,.assisted-hint')){
+        closeCtx();
+      }
+    }
+  },{passive:true});
 })();
 
 // Manual zoom
@@ -3972,12 +4859,14 @@ function realignAll(){
 
 let _isFullscreen=false;
 function toggleFullscreen(){
+  const fsExitBtn=document.getElementById('fs-exit-btn');
   if(!_isFullscreen){
     const el=document.documentElement;
     if(el.requestFullscreen) el.requestFullscreen();
     else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen();
     _isFullscreen=true;
     document.body.classList.add('fs-on');
+    if(fsExitBtn) fsExitBtn.style.display='flex';
     const fsBtn=document.getElementById('fs-btn');
     if(fsBtn) fsBtn.textContent='✕ Quitter plein écran';
   } else {
@@ -3985,17 +4874,19 @@ function toggleFullscreen(){
     else if(document.webkitExitFullscreen) document.webkitExitFullscreen();
     _isFullscreen=false;
     document.body.classList.remove('fs-on');
+    if(fsExitBtn) fsExitBtn.style.display='none';
     const fsBtn=document.getElementById('fs-btn');
     if(fsBtn) fsBtn.textContent='⛶ Plein écran';
   }
-  // After FS transition, auto-fit tree to new available space
   setTimeout(()=>{ computeAndApplyScale(true); renderTree(); }, 120);
 }
-// Sync when browser exits fullscreen (Escape key)
+// Sync when browser exits fullscreen (Escape key or other)
 document.addEventListener('fullscreenchange',()=>{
   if(!document.fullscreenElement && _isFullscreen){
     _isFullscreen=false;
     document.body.classList.remove('fs-on');
+    const fsExitBtn=document.getElementById('fs-exit-btn');
+    if(fsExitBtn) fsExitBtn.style.display='none';
     const fsBtn=document.getElementById('fs-btn');
     if(fsBtn) fsBtn.textContent='⛶ Plein écran';
     setTimeout(()=>{ computeAndApplyScale(true); renderTree(); }, 80);
@@ -4107,7 +4998,8 @@ function clearTree(){
 
 function resetAll(){
   if(!confirm('Tout effacer (phrase et arbre) ?'))return;
-  S.phrase='';S.punct='';S.punctChars=[];S.words=[];S.selected=new Set();S.history=[];
+  snap('reset');
+  S.phrase='';S.punct='';S.punctChars=[];S.words=[];S.selected=new Set();
   S.tnoSel=new Set();S.pbSel=new Set();S.dragMotIds=null;S.dragWordIdx=null;
   document.getElementById('phraseInput').value='';
   exitHighlightMode&&exitHighlightMode();
@@ -4457,6 +5349,12 @@ function switchTab(name){
   if(name==='boites') renderBoites&&renderBoites();
   if(name==='manip'){syncManipWordBar&&syncManipWordBar();resetMR&&resetMR();}
 }
+// Refit boites on resize/fullscreen change
+window.addEventListener('resize',()=>{
+  if(document.getElementById('content-boites')?.classList.contains('active')){
+    requestAnimationFrame(()=>requestAnimationFrame(_fitBoitesToViewport));
+  }
+});
 
 const PHRASE_BANK = {
   1: [
@@ -4538,6 +5436,134 @@ function showDiff(d,btn){
   });
 }
 
+// ── Mise à jour de l'état visuel du bouton Tous ──────────────────
+function _updateAddAllBtn(){
+  const btn=document.getElementById('addAllWordsBtn');
+  if(!btn||!S.words||!S.words.length){ if(btn){btn.style.background='';btn.style.borderColor='';btn.style.color='';} return; }
+  const realWords=S.words.filter(w=>!w.isPunct);
+  const inTree=new Set(Object.values(S.nodes).filter(n=>n.kind==='m').map(n=>n.origIdx));
+  const hasUnplaced=realWords.some(w=>!inTree.has(w.idx));
+  if(hasUnplaced){
+    btn.style.background='var(--abg)';btn.style.borderColor='var(--ac)';btn.style.color='var(--ac)';
+  } else {
+    btn.style.background='';btn.style.borderColor='';btn.style.color='';
+  }
+}
+
+// ══════════════════════════════════════════════════════
+//  AJOUTER TOUS LES MOTS D'UN COUP (Correction 4 + 22)
+// ══════════════════════════════════════════════════════
+function addAllWordsToTree(){
+  if(!S.words||!S.words.length){setHL('Confirmez d\'abord une phrase.');return;}
+  snap('addAll');
+
+  const existingMots=Object.values(S.nodes).filter(n=>n.kind==='m');
+  const existingOrigIdx=new Set(existingMots.map(n=>n.origIdx));
+
+  const realWords=S.words.filter(w=>!w.isPunct);
+  const wordsToAdd=realWords.filter(w=>!existingOrigIdx.has(w.idx));
+  if(!wordsToAdd.length){setHL('Tous les mots sont déjà dans l\'arbre.');return;}
+
+  // Stable bottom Y — below existing tree content
+  let baseY=TOP_Y+4*GY;
+  Object.values(S.nodes).forEach(n=>{
+    if(n.y!==undefined&&n.kind!=='finalPunct'&&n._isFinalPunct!==true&&n.y>baseY-GY) baseY=Math.max(baseY,n.y+GY);
+  });
+
+  // Sort strictly by phrase order
+  wordsToAdd.sort((a,b)=>a.idx-b.idx);
+
+  // Center horizontally around existing content centroid
+  const root=S.nodes[S.rootId];
+  let centerX=(root&&root.x)?root.x:350;
+  const allXs=Object.values(S.nodes).filter(n=>n.x>0&&!n._isFinalPunct).map(n=>n.x);
+  if(allXs.length) centerX=allXs.reduce((a,b)=>a+b,0)/allXs.length;
+
+  const wordWidths=wordsToAdd.map(w=>Math.max(72,w.text.length*9.5+36));
+  const gap=14;
+  const totalW=wordWidths.reduce((s,w)=>s+w,0)+gap*(wordsToAdd.length-1);
+  let curX=centerX-totalW/2;
+
+  // Place each word
+  wordsToAdd.forEach((w,i)=>{
+    const bw=wordWidths[i];
+    const x=curX+bw/2;
+    const id=mkId();
+    S.nodes[id]={id,kind:'m',mot:w.text,origIdx:w.idx,parentId:null,children:[],depth:0,x,y:baseY,mp:true,_manualPos:true};
+    curX+=bw+gap;
+  });
+
+  // Internal punctuation (commas, etc.)
+  if(S.punctChars&&S.punctChars.length){
+    S.punctChars.forEach(pc=>{
+      const prevW=S.words.filter(w=>!w.isPunct&&w.idx<pc.idx).sort((a,b)=>b.idx-a.idx)[0];
+      const nextW=S.words.filter(w=>!w.isPunct&&w.idx>pc.idx).sort((a,b)=>a.idx-b.idx)[0];
+      let px=curX;
+      const prevNode=prevW?Object.values(S.nodes).find(n=>n.kind==='m'&&n.origIdx===prevW.idx):null;
+      const nextNode=nextW?Object.values(S.nodes).find(n=>n.kind==='m'&&n.origIdx===nextW.idx):null;
+      if(prevNode&&nextNode) px=(prevNode.x+nextNode.x)/2;
+      else if(prevNode) px=prevNode.x+60;
+      else if(nextNode) px=nextNode.x-60;
+      const pId='_pchar_'+pc.idx;
+      if(!S.nodes[pId])
+        S.nodes[pId]={id:pId,kind:'punct',mot:pc.text,parentId:null,children:[],depth:0,x:px,y:baseY,mp:true,_manualPos:true};
+    });
+  }
+
+  // Final punctuation bubble — always visible, always shows the actual punct character
+  if(S.punct){
+    const fpId='_fp_auto';
+    if(S.nodes[fpId]&&S.nodes[fpId].mot!==S.punct) delete S.nodes[fpId];
+    if(!S.nodes[fpId]){
+      const allMotNodes=Object.values(S.nodes).filter(n=>n.kind==='m');
+      const lastNode=allMotNodes.length?allMotNodes.reduce((a,b)=>a.x>b.x?a:b):null;
+      const fpX=lastNode?(lastNode.x+70):(curX+30);
+      S.nodes[fpId]={id:fpId,kind:'punct',mot:S.punct,parentId:null,children:[],depth:0,x:fpX,y:baseY,mp:true,_manualPos:true,_isFinalPunct:true};
+    }
+  }
+
+  // Re-render without resetting camera
+  doLayout();
+  document.querySelectorAll('.tnode').forEach(e=>e.remove());
+  _applyAutoCommaCP();
+  Object.values(S.nodes).forEach(n=>renderNode(n));
+  renderEdges();
+  renderPhraseBottom();
+  requestAnimationFrame(()=>{
+    computeAndApplyScale(true);
+    _repositionZoomBar();
+    _updateAddAllBtn();
+  });
+  setHL(wordsToAdd.length+' mot(s) ajouté(s) dans l\'arbre.');
+}
+
+
+
+// ══════════════════════════════════════════════════════
+//  MODE ASSISTÉ (Correction 6)
+// ══════════════════════════════════════════════════════
+function toggleAssistedMode(){
+  S.assistedMode=!S.assistedMode;
+  const btn=document.getElementById('assistedModeBtn');
+  if(btn){
+    btn.style.background=S.assistedMode?'var(--ac)':'';
+    btn.style.color=S.assistedMode?'white':'';
+    btn.style.borderColor=S.assistedMode?'var(--ac)':'var(--bd)';
+    btn.title=S.assistedMode?'Analyse assistée : ON (cliquer pour désactiver)':'Analyse assistée : OFF (cliquer pour activer)';
+    btn.textContent=S.assistedMode?'💡 Assisté : ON':'💡 Assisté : OFF';
+  }
+  renderTree();
+  setHL(S.assistedMode?'Mode assisté activé.':'Mode assisté désactivé.');
+}
+
+function showAssistedMsg(ev, nodeId){
+  ev.stopPropagation();
+  const x=ev.clientX+8, y=ev.clientY+8;
+  buildCtxAt('Analyse assistée',[
+    {label:'Vérifiez bien, ce mot est le noyau d\'un groupe.',action:()=>{},dot:'#fef9c3',border:'#fbbf24'},
+  ],x,y);
+}
+
 // ══════════════════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════════════════
@@ -4609,48 +5635,86 @@ function loadExampleTree(){
   }
   document.getElementById('about-modal').style.display='none';
   snap('example');
-  // Phrase: "Les élèves de la classe analysent."
-  const exPhrase="Les élèves de la classe analysent.";
-  document.getElementById('phraseInput').value=exPhrase;
-  S.phrase=exPhrase; S.punct='.';
-  S.words=[
-    {text:'Les',isPunct:false,cls:'Dét.',idx:0},
-    {text:'élèves',isPunct:false,cls:'N',idx:1},
-    {text:'de',isPunct:false,cls:'Prép.',idx:2},
-    {text:'la',isPunct:false,cls:'Dét.',idx:3},
-    {text:'classe',isPunct:false,cls:'N',idx:4},
-    {text:'analysent',isPunct:false,cls:'V',idx:5},
-  ];
-  S.punctChars=[];S.selected=new Set();S.history=[];
-  S.tnoSel=new Set();S.pbSel=new Set();S.dragMotIds=null;S.coordRoots=null;
-  S.nid=0;S.nodes={};
+
+  // ── JSON d'exemple officiel ──────────────────────────────────
+  const exJSON = {
+    "version": 1,
+    "phrase": "Les élèves de la classe analysent une phrase ce matin.",
+    "punct": ".",
+    "words": [
+      { "text": "Les", "isPunct": false, "color": "", "cls": "Dét.", "idx": 0 },
+      { "text": "élèves", "isPunct": false, "color": "", "cls": "Nom", "idx": 1 },
+      { "text": "de", "isPunct": false, "color": "", "cls": "Prép.", "idx": 2 },
+      { "text": "la", "isPunct": false, "color": "", "cls": "Dét.", "idx": 3 },
+      { "text": "classe", "isPunct": false, "color": "", "cls": "Nom", "idx": 4 },
+      { "text": "analysent", "isPunct": false, "color": "", "cls": "Verbe", "idx": 5 },
+      { "text": "une", "isPunct": false, "color": "", "cls": "Dét.", "idx": 6 },
+      { "text": "phrase", "isPunct": false, "color": "", "cls": "Nom", "idx": 7 },
+      { "text": "ce", "isPunct": false, "color": "", "cls": "Dét.", "idx": 8 },
+      { "text": "matin", "isPunct": false, "color": "", "cls": "Nom", "idx": 9 }
+    ],
+    "nodes": {
+      "root": { "id": "root", "kind": "p", "parentId": null, "children": ["n1","n25","n32"], "depth": 0, "x": 790, "y": 70, "mp": false, "_manualPos": false, "label": "P", "coordDone": false, "_structDepth": 0 },
+      "n1": { "id": "n1", "kind": "fg", "fn": "Sujet", "grp": "GN", "fnCls": "fn-s", "grpCls": "gk-gn", "parentId": "root", "children": ["n2","n4","n13"], "depth": 1, "x": 370, "y": 162, "mp": false, "_manualPos": false, "_structDepth": 1 },
+      "n2": { "id": "n2", "kind": "c", "cls": "Dét.", "parentId": "n1", "children": ["n3"], "depth": 2, "x": 130, "y": 254, "mp": false, "_manualPos": false, "_structDepth": 2, "isConj": false },
+      "n3": { "id": "n3", "kind": "m", "mot": "Les", "origIdx": 0, "parentId": "n2", "children": [], "depth": 3, "x": 130, "y": 530, "mp": false, "_manualPos": false, "_structDepth": 5 },
+      "n4": { "id": "n4", "kind": "c", "cls": "Nom", "parentId": "n1", "children": ["n5"], "depth": 2, "x": 250, "y": 254, "mp": false, "_manualPos": false, "_structDepth": 2, "isConj": false },
+      "n5": { "id": "n5", "kind": "m", "mot": "élèves", "origIdx": 1, "parentId": "n4", "children": [], "depth": 3, "x": 250, "y": 530, "mp": false, "_manualPos": false, "_structDepth": 5 },
+      "n12": { "id": "n12", "kind": "finalPunct", "mot": ".", "parentId": null, "children": [], "depth": 0, "x": 1294, "y": 530, "mp": false, "_manualPos": false },
+      "n13": { "id": "n13", "kind": "fg", "fn": "Compl. du N", "grp": "GPrép", "fnCls": "fn-o", "grpCls": "gk-gprep", "parentId": "n1", "children": ["n18","n20"], "depth": 2, "x": 490, "y": 254, "mp": false, "_manualPos": false, "_structDepth": 2 },
+      "n18": { "id": "n18", "kind": "c", "cls": "Prép.", "parentId": "n13", "children": ["n19"], "depth": 3, "x": 370, "y": 346, "mp": false, "_manualPos": false, "_structDepth": 3, "isConj": false },
+      "n19": { "id": "n19", "kind": "m", "mot": "de", "origIdx": 2, "parentId": "n18", "children": [], "depth": 4, "x": 370, "y": 530, "mp": false, "_manualPos": false, "_structDepth": 5 },
+      "n20": { "id": "n20", "kind": "fg", "fn": "Compl. de la Prép.", "grp": "GN", "fnCls": "fn-o", "grpCls": "gk-gn", "parentId": "n13", "children": ["n21","n23"], "depth": 3, "x": 550, "y": 346, "mp": false, "_manualPos": false, "_structDepth": 3 },
+      "n21": { "id": "n21", "kind": "c", "cls": "Dét.", "parentId": "n20", "children": ["n22"], "depth": 4, "x": 490, "y": 438, "mp": false, "_manualPos": false, "_structDepth": 4, "isConj": false },
+      "n22": { "id": "n22", "kind": "m", "mot": "la", "origIdx": 3, "parentId": "n21", "children": [], "depth": 5, "x": 490, "y": 530, "mp": false, "_manualPos": false, "_structDepth": 5 },
+      "n23": { "id": "n23", "kind": "c", "cls": "Nom", "parentId": "n20", "children": ["n24"], "depth": 4, "x": 610, "y": 438, "mp": false, "_manualPos": false, "_structDepth": 4, "isConj": false },
+      "n24": { "id": "n24", "kind": "m", "mot": "classe", "origIdx": 4, "parentId": "n23", "children": [], "depth": 5, "x": 610, "y": 530, "mp": false, "_manualPos": false, "_structDepth": 5 },
+      "n25": { "id": "n25", "kind": "fg", "fn": "Prédicat", "grp": "GV", "fnCls": "fn-p", "grpCls": "gk-gv", "parentId": "root", "children": ["n26","n46"], "depth": 1, "x": 850, "y": 162, "mp": false, "_manualPos": false, "_structDepth": 1 },
+      "n26": { "id": "n26", "kind": "c", "cls": "Verbe", "parentId": "n25", "children": ["n27"], "depth": 2, "x": 730, "y": 254, "mp": false, "_manualPos": false, "_structDepth": 2, "isConj": false },
+      "n27": { "id": "n27", "kind": "m", "mot": "analysent", "origIdx": 5, "parentId": "n26", "children": [], "depth": 3, "x": 730, "y": 530, "mp": false, "_manualPos": false, "_structDepth": 5 },
+      "n32": { "id": "n32", "kind": "fg", "fn": "Compl. de P", "grp": "GN", "fnCls": "fn-c", "grpCls": "gk-gn", "parentId": "root", "children": ["n33","n35"], "depth": 1, "x": 1150, "y": 162, "mp": false, "_manualPos": false, "_structDepth": 1 },
+      "n33": { "id": "n33", "kind": "c", "cls": "Dét.", "parentId": "n32", "children": ["n34"], "depth": 2, "x": 1090, "y": 254, "mp": false, "_manualPos": false, "_structDepth": 2, "isConj": false },
+      "n34": { "id": "n34", "kind": "m", "mot": "ce", "origIdx": 8, "parentId": "n33", "children": [], "depth": 3, "x": 1090, "y": 530, "mp": false, "_manualPos": false, "_structDepth": 5 },
+      "n35": { "id": "n35", "kind": "c", "cls": "Nom", "parentId": "n32", "children": ["n36"], "depth": 2, "x": 1210, "y": 254, "mp": false, "_manualPos": false, "_structDepth": 2, "isConj": false },
+      "n36": { "id": "n36", "kind": "m", "mot": "matin", "origIdx": 9, "parentId": "n35", "children": [], "depth": 3, "x": 1210, "y": 530, "mp": false, "_manualPos": false, "_structDepth": 5 },
+      "n46": { "id": "n46", "kind": "fg", "fn": "CD", "grp": "GN", "fnCls": "fn-o", "grpCls": "gk-gn", "parentId": "n25", "children": ["n47","n49"], "depth": 2, "x": 910, "y": 254, "mp": false, "_manualPos": false, "_structDepth": 2 },
+      "n47": { "id": "n47", "kind": "c", "cls": "Dét.", "parentId": "n46", "children": ["n48"], "depth": 3, "x": 850, "y": 346, "mp": false, "_manualPos": false, "_structDepth": 3, "isConj": false },
+      "n48": { "id": "n48", "kind": "m", "mot": "une", "origIdx": 6, "parentId": "n47", "children": [], "depth": 4, "x": 850, "y": 530, "mp": false, "_manualPos": false, "_structDepth": 5 },
+      "n49": { "id": "n49", "kind": "c", "cls": "Nom", "parentId": "n46", "children": ["n50"], "depth": 3, "x": 970, "y": 346, "mp": false, "_manualPos": false, "_structDepth": 3, "isConj": false },
+      "n50": { "id": "n50", "kind": "m", "mot": "phrase", "origIdx": 7, "parentId": "n49", "children": [], "depth": 4, "x": 970, "y": 530, "mp": false, "_manualPos": false, "_structDepth": 5 }
+    },
+    "rootId": "root",
+    "nid": 50,
+    "coordRoots": null
+  };
+
+  // Appliquer le JSON
+  const exPhrase = exJSON.phrase;
+  document.getElementById('phraseInput').value = exPhrase;
+  S.phrase = exPhrase;
+  S.punct = exJSON.punct || '.';
+  S.words = exJSON.words.map((w,i) => ({text:w.text, isPunct:!!w.isPunct, color:w.color||'', cls:w.cls||'?', idx:i}));
+  S.punctChars = [];
+  S.selected = new Set();
+  // Don't clear S.history — snap was called above so user can undo
+  S.tnoSel = new Set();
+  S.pbSel = new Set();
+  S.dragMotIds = null;
+  S.coordRoots = exJSON.coordRoots || null;
+  S.rootId = exJSON.rootId || 'root';
+  S.nid = exJSON.nid || 50;
+
+  // Reconstruire les nœuds depuis le JSON — copie profonde
+  S.nodes = {};
+  Object.entries(exJSON.nodes).forEach(([id, nd]) => {
+    S.nodes[id] = Object.assign({}, nd, {children: Array.isArray(nd.children) ? [...nd.children] : []});
+  });
+
   if(window._resetPan) window._resetPan();
-  // Build tree: P → Sujet(GN) → classe(N)→[Les,élèves,de,la,classe], Prédicat(GV)→classe(V)→analysent
-  function mkN(kind,opts,parentId){
-    const id='n'+(++S.nid);
-    S.nodes[id]={id,kind,...opts,parentId,children:[],depth:0,x:0,y:0,mp:false,_manualPos:false};
-    if(parentId&&S.nodes[parentId]) S.nodes[parentId].children.push(id);
-    return id;
-  }
-  const rootId='n'+(++S.nid);
-  S.nodes[rootId]={id:rootId,kind:'p',parentId:null,children:[],depth:0,x:0,y:0,mp:false,_manualPos:false,label:'P',coordDone:false};
-  S.rootId=rootId;
-  // Sujet: GN
-  const fgSuj=mkN('fg',{fn:'Sujet',grp:'GN',fnCls:'fn-s',grpCls:'gk-gn'},rootId);
-  // GN children: Les, élèves, GPrép(de la classe)
-  const cLes=mkN('c',{cls:'Dét.'},fgSuj); mkN('m',{mot:'Les',origIdx:0},cLes);
-  const cEleves=mkN('c',{cls:'N'},fgSuj); mkN('m',{mot:'élèves',origIdx:1},cEleves);
-  // GPrép sous GN
-  const fgGPrep=mkN('g',{grp:'GPrép',grpCls:'gk-gprep'},fgSuj);
-  const cDe=mkN('c',{cls:'Prép.'},fgGPrep); mkN('m',{mot:'de',origIdx:2},cDe);
-  const fgGN2=mkN('g',{grp:'GN',grpCls:'gk-gn'},fgGPrep);
-  const cLa=mkN('c',{cls:'Dét.'},fgGN2); mkN('m',{mot:'la',origIdx:3},cLa);
-  const cClasse=mkN('c',{cls:'N'},fgGN2); mkN('m',{mot:'classe',origIdx:4},cClasse);
-  // Prédicat: GV
-  const fgPred=mkN('fg',{fn:'Prédicat',grp:'GV',fnCls:'fn-p',grpCls:'gk-gv'},rootId);
-  const cAnal=mkN('c',{cls:'V'},fgPred); mkN('m',{mot:'analysent',origIdx:5},cAnal);
-  S.treeScale=1;
-  renderWords();renderTree();renderClasses();
+  S.treeScale = 1;
+  renderWords();
+  renderTree();
+  renderClasses();
   setHL("Exemple chargé. Arbre entièrement modifiable.");
 }
 </script>
