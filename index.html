@@ -25,6 +25,8 @@
   --go-bg:#f0fdf4;--go-b:#86efac;--go-t:#166534;
   --psub-bg:#fdf4ff;--psub-b:#d946ef;--psub-t:#7e22ce;
   --pn-bg:#1f2937;--pn-b:#374151;
+  --glvl3-bg:rgba(255,234,204,0.82);--glvl3-b:#f97316;--glvl3-t:#7c2d12;
+  --glvl4-bg:rgba(237,220,255,0.82);--glvl4-b:#a855f7;--glvl4-t:#581c87;
   --conj-bg:#fff7ed;--conj-b:#fb923c;--conj-t:#c2410c;
   --cls-bg:#f9fafb;--cls-b:#9ca3af;--cls-t:#374151;
   --mot-bg:#fff;--mot-b:#6b7280;--mot-t:#111827;
@@ -578,6 +580,10 @@ body.fs-on .fs-hide{display:none!important;}
 
       <!-- MANIP -->
       <div class="tcontent" id="content-manip">
+        <!-- Fix 6: back-to-tree button visible only in fullscreen -->
+        <div class="fs-only" style="padding:4px 12px;background:var(--s2);border-bottom:1px solid var(--bd);flex-shrink:0;display:none">
+          <button class="hbtn" onclick="switchTab('arbre')" style="font-size:.72rem">🌳 Retour à l'Arbre</button>
+        </div>
         <!-- Phrase bar duplicated inside manip tab for synchronised word selection -->
         <div class="pbar" id="pbar-manip" style="flex-shrink:0">
           <div class="pbar-lbl">Phrase — cliquez pour sélectionner des mots</div>
@@ -1449,6 +1455,17 @@ function renderNode(n,animId){
   el.className=cls; el.id='nd-'+n.id;
   el.style.left=n.x+'px'; el.style.top=n.y+'px';
 
+  // Fix 7: apply orange (level 3) / mauve (level 4) colors based on real fg/g ancestor count
+  if(n.kind==='fg'||n.kind==='g'){
+    let _lvl=0,_cur=n.parentId;
+    while(_cur){const _p=S.nodes[_cur];if(!_p)break;if(_p.kind==='fg'||_p.kind==='g')_lvl++;_cur=_p.parentId;}
+    if(_lvl===2){
+      el.style.background='var(--glvl3-bg)';el.style.borderColor='var(--glvl3-b)';el.style.color='var(--glvl3-t)';
+    } else if(_lvl>=3){
+      el.style.background='var(--glvl4-bg)';el.style.borderColor='var(--glvl4-b)';el.style.color='var(--glvl4-t)';
+    }
+  }
+
   let inner='';
   // In coord mode, find which P (P1/P2) this node belongs to
   function getCoordSuffix(nodeId){
@@ -2140,7 +2157,14 @@ function dropMotNodes(nodeId,motIds){
     }
   }
 
-  const wordSpecs=mots.map(m=>mkWordSpec(m.mot,m.origIdx));
+  // Fix 3: preserve cls from existing parent class node or S.words before cleanup
+  function _getMotCls(motNode){
+    const parentCls = motNode.parentId && S.nodes[motNode.parentId] ? S.nodes[motNode.parentId].cls : undefined;
+    if(parentCls && parentCls !== '?') return parentCls;
+    const wi = S.words.findIndex(w=>!w.isPunct&&(w.idx===motNode.origIdx||(motNode.origIdx===undefined&&w.text===motNode.mot)));
+    return (wi>=0&&S.words[wi].cls&&S.words[wi].cls!=='?')?S.words[wi].cls:'?';
+  }
+  const wordSpecs=mots.map(m=>({...mkWordSpec(m.mot,m.origIdx),cls:_getMotCls(m)}));
   const wordArr=wordSpecs.map(w=>w.text);
   const outerEl=document.getElementById('tree-outer');
   const rect=outerEl.getBoundingClientRect();
@@ -2182,7 +2206,7 @@ function dropMotNodes(nodeId,motIds){
     // Structural only — NO class choices (class set later via class bubble)
     const moveDirectItem=!allAlreadyInGroup?[mkItemColor('📥 Déplacer dans ce groupe','var(--abg)','var(--ac)',()=>{
       snap('move');cleanupMotNodes(mots);
-      wordSpecs.forEach(w=>{const cid=mkNode('c',{cls:'?'},target.id,target.depth+1);mkNode('m',{mot:w.text,origIdx:w.origIdx},cid,target.depth+2);});
+      wordSpecs.forEach(w=>{const cid=mkNode('c',{cls:w.cls||'?'},target.id,target.depth+1);mkNode('m',{mot:w.text,origIdx:w.origIdx},cid,target.depth+2);});
       renderTree(target.id);setHL('Mot(s) déplacé(s) dans '+parentGrp+'.');clearAllSel();
     }),null]:[];
     buildCtxAt('Déplacer dans '+parentGrp,[...moveDirectItem,...grpItems],cx,cy);
@@ -2218,7 +2242,7 @@ function showSubFnForDrop_Move(parentNode,grpLabel,wordSpecs,mots,cx,cy){
   const items=allFns.map(fn=>mkItemColor(fn,'var(--fn-o-bg)','var(--fn-o-b)',()=>{
     snap('move');cleanupMotNodes(mots);
     const fgId=addFG(parentNode.id,fn,grpLabel,parentNode.depth+1);
-    wordSpecs.forEach(w=>{const cid=mkNode('c',{cls:'?'},fgId,parentNode.depth+2);mkNode('m',{mot:w.text,origIdx:w.origIdx},cid,parentNode.depth+3);});
+    wordSpecs.forEach(w=>{const cid=mkNode('c',{cls:w.cls||'?'},fgId,parentNode.depth+2);mkNode('m',{mot:w.text,origIdx:w.origIdx},cid,parentNode.depth+3);});
     renderTree(fgId);setHL('Groupe '+grpLabel+' ('+fn+') créé.');clearAllSel();
   }));
   buildCtxAt('Fonction de '+grpLabel+' dans '+parentGrp,items,cx+14,cy+14);
@@ -2231,7 +2255,7 @@ function showDropGrpForFn_Move(parentId,fn,depth,wordSpecs,mots,cx,cy){
     return mkItemColor(g,col.bg,col.b,()=>{
       snap('move');cleanupMotNodes(mots);
       const fgId=addFG(parentId,fn,g,depth);
-      wordSpecs.forEach(w=>{const cid=mkNode('c',{cls:'?'},fgId,depth+1);mkNode('m',{mot:w.text,origIdx:w.origIdx},cid,depth+2);});
+      wordSpecs.forEach(w=>{const cid=mkNode('c',{cls:w.cls||'?'},fgId,depth+1);mkNode('m',{mot:w.text,origIdx:w.origIdx},cid,depth+2);});
       renderTree(fgId);setHL('Groupe '+g+' ('+fn+') créé.');clearAllSel();
     });
   });
@@ -2371,6 +2395,13 @@ function applyCoordination(n,label,linkWord,adjPunct){
     n.coordDone=true; n._manualPos=false; n.mp=false;
     const p1Id=n.id;
 
+    // Fix 13: remove standalone 'm' node for the coordonnant word to prevent duplicates
+    Object.keys(S.nodes).forEach(nid=>{
+      const mn=S.nodes[nid];
+      if(mn&&mn.kind==='m'&&mn.mot===linkWord&&(mn.parentId===null||!S.nodes[mn.parentId]))
+        delete S.nodes[nid];
+    });
+
     const introId=mkId();
     S.nodes[introId]={id:introId,kind:'intro',introType:label,mot:linkWord,adjPunct:adjPunct,
       parentId:null,children:[],depth:0,x:0,y:0,mp:false,_manualPos:false,isCoord:true};
@@ -2399,6 +2430,12 @@ function applyCoordination(n,label,linkWord,adjPunct){
 
   } else if(n.kind==='pn' && S.coordRoots){
     snap('coord');
+    // Fix 13: remove standalone 'm' node for the coordonnant word to prevent duplicates
+    Object.keys(S.nodes).forEach(nid=>{
+      const mn=S.nodes[nid];
+      if(mn&&mn.kind==='m'&&mn.mot===linkWord&&(mn.parentId===null||!S.nodes[mn.parentId]))
+        delete S.nodes[nid];
+    });
     const lastLabel='P'+(S.coordRoots.filter(id=>S.nodes[id]?.kind==='pn').length+1);
     const introId2=mkId();
     S.nodes[introId2]={id:introId2,kind:'intro',introType:label,mot:linkWord,adjPunct:adjPunct,
@@ -2420,6 +2457,28 @@ function applyCoordination(n,label,linkWord,adjPunct){
     S.coordRoots.push(introId2, pnId);
     renderTree(pnId);
     setHL(lastLabel+' ajouté.');
+
+  } else if(n.kind==='fg'||n.kind==='g'){
+    // Fix 12: coordination/juxtaposition inside a group.
+    // Add an intro node (with motlink child) directly inside the group,
+    // using the same intro/motlink structure as for P-level coordination.
+    snap('coord');
+    const introId3=mkId();
+    S.nodes[introId3]={id:introId3,kind:'intro',introType:label,mot:linkWord,adjPunct:adjPunct,
+      parentId:n.id,children:[],depth:n.depth+1,x:0,y:0,mp:false,_manualPos:false,isCoord:true};
+    const mlId3=mkId();
+    S.nodes[mlId3]={id:mlId3,kind:'motlink',mot:linkWord,
+      parentId:introId3,children:[],depth:n.depth+2,x:0,y:0,mp:false,_manualPos:false};
+    S.nodes[introId3].children=[mlId3];
+    adjPunct.forEach(ap=>{
+      const pId3=mkId();
+      S.nodes[pId3]={id:pId3,kind:'punct',mot:ap.text,pos:ap.pos,
+        parentId:introId3,children:[],depth:n.depth+2,x:0,y:0,mp:false,_manualPos:false};
+      S.nodes[introId3].children.push(pId3);
+    });
+    if(S.nodes[n.id]) S.nodes[n.id].children.push(introId3);
+    renderTree(introId3);
+    setHL(label+' « '+linkWord+' » ajouté dans le groupe.');
   }
 }
 
@@ -2432,6 +2491,9 @@ function menuFG(ev,n){
     null,
     mkItem('+ Classe de mot','cls',()=>showClassMenu(cx,cy,n.id,n.depth+1)),
     mkItem('+ Sous-groupe','grp',()=>showSubGrpMenu(cx,cy,n)),
+    null,
+    mkItem('+ Coordination','fn-o',()=>startCoordination(n,'coord',cx,cy)),
+    mkItem('+ Juxtaposition','fn-o',()=>startCoordination(n,'juxta',cx,cy)),
   ];
   items.push(null);
   items.push(mkItemColor('🔍 Mettre en évidence','#fef9c3','#fbbf24',()=>highlightSubtree(n.id)));
@@ -2469,6 +2531,9 @@ function menuG(ev,n){
   buildCtxAt('Ajouter dans '+n.grp,[
     mkItem('+ Classe de mot','cls',()=>showClassMenu(cx,cy,n.id,n.depth+1)),
     mkItem('+ Sous-groupe','grp',()=>showSubGrpMenu(cx,cy,n)),
+    null,
+    mkItem('+ Coordination','fn-o',()=>startCoordination(n,'coord',cx,cy)),
+    mkItem('+ Juxtaposition','fn-o',()=>startCoordination(n,'juxta',cx,cy)),
   ],cx,cy);
 }
 
@@ -2524,23 +2589,34 @@ function menuC(ev,n){
   } else if(directPsubType==='Psub compl.'||directPsubType==='Psub. Compl. de P'){
     if(!clsList.includes('Subordonnant')) clsList.push('Subordonnant');
   }
-  const items=clsList.map(c=>mkItemColor(c,'var(--cls-bg)','var(--cls-b)',()=>{
-    snap('chg'); n.cls=c;
-    // Sync to phrase words
-    const motChild=n.children.map(id=>S.nodes[id]).find(ch=>ch?.kind==='m');
-    if(motChild){
-      const wi=S.words.findIndex(w=>w.text===motChild.mot);
-      if(wi>=0){S.words[wi].cls=c;renderClasses();}
-    }
-    // Conjunction promotion
-    if(c==='Conj.'||c==='Interj.'){
-      promoteConjNode(n);
-    } else {
-      n.isConj=false;
-    }
-    renderTree();setHL('Classe changée en '+c+'.');
-  }));
-  buildCtxAt('Changer la classe'+(n.cls!=='?'?' (actuel: '+n.cls+')':''),items,cx,cy,true);
+  // Fix 11: render as 2-column grid instead of long vertical list
+  const ctx=document.getElementById('ctx');
+  const title='Changer la classe'+(n.cls!=='?'?' (actuel: '+n.cls+')':'');
+  ctxActs=[];
+  let h=`<div class="ctx-title">${title}</div>`;
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 4px;padding:2px">';
+  clsList.forEach((c,i)=>{
+    const isActive=(n.cls===c);
+    ctxActs.push(()=>{
+      snap('chg'); n.cls=c;
+      const motChild=n.children.map(id=>S.nodes[id]).find(ch=>ch?.kind==='m');
+      if(motChild){
+        const wi=S.words.findIndex(w=>w.text===motChild.mot);
+        if(wi>=0){S.words[wi].cls=c;renderClasses();}
+      }
+      if(c==='Conj.'||c==='Interj.'){ promoteConjNode(n); } else { n.isConj=false; }
+      renderTree();setHL('Classe changée en '+c+'.');
+    });
+    h+=`<div class="ctx-item${isActive?' ctx-item-active':''}" onclick="runCtx(${i})" style="${isActive?'background:var(--abg);color:var(--ac);font-weight:700;':''}"><div class="ctx-dot" style="background:var(--cls-bg);border-color:var(--cls-b)"></div>${c}${isActive?' ✓':''}</div>`;
+  });
+  h+='</div>';
+  ctx.innerHTML=h; ctx.classList.add('open');
+  ctx.style.left=cx+'px'; ctx.style.top=cy+'px';
+  requestAnimationFrame(()=>{
+    const r=ctx.getBoundingClientRect();
+    if(r.right>window.innerWidth-8) ctx.style.left=(cx-r.width-12)+'px';
+    if(r.bottom>window.innerHeight-8) ctx.style.top=(cy-r.height-12)+'px';
+  });
 }
 
 function promoteConjNode(cNode){
@@ -3367,13 +3443,27 @@ function initPbarSel(c){
 // ── Lasso / long-press selection ──
 function showWordClassPickMenu(wordIdx,cx,cy){
   const w=S.words[wordIdx];if(!w||w.isPunct)return;
-  // Block the next document click so menu doesn't close immediately on pointer-up
   _ctxBlocked=true;
   setTimeout(()=>{_ctxBlocked=false;},200);
-  const items=ALL_CLASSES.map(c=>mkItemColor(c+(w.cls===c?' ✓':''),'var(--cls-bg)','var(--cls-b)',()=>{
-    setWC(wordIdx,c);setHL('"'+w.text+'" → classe '+c+'.');
-  }));
-  buildCtxAt('Classe de « '+w.text+' »',items,cx,cy,true);
+  // Fix 11: 2-column layout for word class pick menu
+  const ctx=document.getElementById('ctx');
+  const title='Classe de « '+w.text+' »';
+  ctxActs=[];
+  let h=`<div class="ctx-title">${title}</div>`;
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 4px;padding:2px">';
+  ALL_CLASSES.forEach((c,i)=>{
+    const isActive=(w.cls===c);
+    ctxActs.push(()=>{ setWC(wordIdx,c);setHL('"'+w.text+'" → classe '+c+'.'); });
+    h+=`<div class="ctx-item${isActive?' ctx-item-active':''}" onclick="runCtx(${i})" style="${isActive?'background:var(--abg);color:var(--ac);font-weight:700;':''}"><div class="ctx-dot" style="background:var(--cls-bg);border-color:var(--cls-b)"></div>${c}${isActive?' ✓':''}</div>`;
+  });
+  h+='</div>';
+  ctx.innerHTML=h; ctx.classList.add('open');
+  ctx.style.left=cx+'px'; ctx.style.top=cy+'px';
+  requestAnimationFrame(()=>{
+    const r=ctx.getBoundingClientRect();
+    if(r.right>window.innerWidth-8) ctx.style.left=(cx-r.width-12)+'px';
+    if(r.bottom>window.innerHeight-8) ctx.style.top=(cy-r.height-12)+'px';
+  });
 }
 
 function togWord(i){if(S.selected.has(i))S.selected.delete(i);else S.selected.add(i);renderWords();updSel();}
@@ -4261,10 +4351,12 @@ function applyEnc(t){
     const sIdx=getSel().filter(i=>!S.words[i]?.isPunct);
     if(!sIdx.length){noSel('encadrement');return;}
     const fi=sIdx[0],li=sIdx[sIdx.length-1];
+    const firstSelWord=S.words[fi]?.text||'';
+    const neToken=/^[aeiouyAEIOUY]/.test(firstSelWord)?"n'":"ne";
     html=S.words.map((w,i)=>{
       if(!S.selected.has(i)||w.isPunct) return w.text;
       let p='';
-      if(i===fi) p+=`<span class="m-ins">ne</span> `;
+      if(i===fi) p+=`<span class="m-ins">${neToken}</span> ` ;
       p+=`<span class="m-hi">${w.text}</span>`;
       if(i===li) p+=` <span class="m-ins">pas</span>`;
       return p;
@@ -4869,6 +4961,9 @@ function toggleFullscreen(){
     if(fsExitBtn) fsExitBtn.style.display='flex';
     const fsBtn=document.getElementById('fs-btn');
     if(fsBtn) fsBtn.textContent='✕ Quitter plein écran';
+    // Adjust highlight-exit-btn position if active
+    const hlBtn=document.getElementById('highlight-exit-btn');
+    if(hlBtn&&hlBtn.style.display==='flex') hlBtn.style.top='60px';
   } else {
     if(document.exitFullscreen) document.exitFullscreen();
     else if(document.webkitExitFullscreen) document.webkitExitFullscreen();
@@ -4877,6 +4972,9 @@ function toggleFullscreen(){
     if(fsExitBtn) fsExitBtn.style.display='none';
     const fsBtn=document.getElementById('fs-btn');
     if(fsBtn) fsBtn.textContent='⛶ Plein écran';
+    // Restore highlight-exit-btn position if active
+    const hlBtn=document.getElementById('highlight-exit-btn');
+    if(hlBtn&&hlBtn.style.display==='flex') hlBtn.style.top='12px';
   }
   setTimeout(()=>{ computeAndApplyScale(true); renderTree(); }, 120);
 }
@@ -4889,9 +4987,22 @@ document.addEventListener('fullscreenchange',()=>{
     if(fsExitBtn) fsExitBtn.style.display='none';
     const fsBtn=document.getElementById('fs-btn');
     if(fsBtn) fsBtn.textContent='⛶ Plein écran';
+    const hlBtn=document.getElementById('highlight-exit-btn');
+    if(hlBtn&&hlBtn.style.display==='flex') hlBtn.style.top='12px';
     setTimeout(()=>{ computeAndApplyScale(true); renderTree(); }, 80);
   }
 });
+// Fix 2: ensure fs-exit-btn works on touch devices
+(function(){
+  function _initFsExitBtnTouch(){
+    const btn=document.getElementById('fs-exit-btn');
+    if(!btn) return;
+    btn.addEventListener('touchend',function(e){e.preventDefault();e.stopPropagation();toggleFullscreen();},{passive:false});
+    btn.style.pointerEvents='auto';
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_initFsExitBtnTouch);
+  else _initFsExitBtnTouch();
+})();
 
 function syncFsWordBar(){
   // Sync to pwords-fs inside pbar-inline (FS bottom bar)
@@ -5077,6 +5188,18 @@ function showManipResult(htmlContent){
   const card=document.getElementById('manip-result-card');
   if(!card) return;
   card.innerHTML=htmlContent+'<button onclick="document.getElementById(\'manip-result-card\').style.display=\'none\'" style="margin-left:8px;background:none;border:none;cursor:pointer;font-size:.9rem;color:var(--t3);flex-shrink:0;padding:2px 6px;border-radius:4px">✕</button>';
+  // Fix 5: adapt popup size for fullscreen (readable on projector/tableau)
+  const isFs=document.body.classList.contains('fs-on');
+  card.style.bottom=isFs?'auto':'72px';
+  card.style.top=isFs?'50%':'auto';
+  card.style.left='50%';
+  card.style.transform=isFs?'translate(-50%,-50%)':'translateX(-50%)';
+  card.style.maxWidth=isFs?'92vw':'720px';
+  card.style.width=isFs?'90vw':'max-content';
+  card.style.fontSize=isFs?'1.35rem':'.85rem';
+  card.style.padding=isFs?'22px 28px':'10px 16px';
+  card.style.zIndex=isFs?'900':'600';
+  card.style.lineHeight=isFs?'1.8':'';
   card.style.display='flex';
   if(card._t) clearTimeout(card._t);
   card._t=setTimeout(()=>{card.style.display='none';},9000);
@@ -5137,10 +5260,11 @@ function _encHtml(t){
     const sIdx=getSel().filter(i=>!S.words[i]?.isPunct);
     if(!sIdx.length) return null;
     const fi=sIdx[0], li=sIdx[sIdx.length-1];
+    const neToken2=/^[aeiouyAEIOUY]/.test(S.words[fi]?.text||'')?"n'":"ne";
     const parts=S.words.map((w,i)=>{
       if(!S.selected.has(i)||w.isPunct) return w.text;
       let p='';
-      if(i===fi) p+=`<span style="color:#166534;font-weight:700">ne</span> `;
+      if(i===fi) p+=`<span style="color:#166534;font-weight:700">${neToken2}</span> `;
       p+=`<span style="background:#fef9c3;padding:1px 3px;border-radius:3px">${w.text}</span>`;
       if(i===li) p+=` <span style="color:#166534;font-weight:700">pas</span>`;
       return p;
@@ -5241,7 +5365,7 @@ function highlightSubtree(nodeId){
   const svg=document.getElementById('tree-svg');
   if(svg) svg.style.opacity='0.2';
   const exitBtn=document.getElementById('highlight-exit-btn');
-  if(exitBtn) exitBtn.style.display='flex';
+  if(exitBtn){exitBtn.style.display='flex';exitBtn.style.top=document.body.classList.contains('fs-on')?'60px':'12px';}
   // Auto zoom+fit on subtree
   _zoomToSubtree(subtree);
 }
@@ -5275,7 +5399,7 @@ function exitHighlightMode(){
   _highlightRoot=null;
   document.querySelectorAll('#tree-canvas .tnode').forEach(el=>{el.style.opacity='';el.style.filter='';});
   const svg=document.getElementById('tree-svg'); if(svg) svg.style.opacity='';
-  const exitBtn=document.getElementById('highlight-exit-btn'); if(exitBtn) exitBtn.style.display='none';
+  const exitBtn=document.getElementById('highlight-exit-btn'); if(exitBtn){exitBtn.style.display='none';exitBtn.style.top='12px';}
   // Restore full tree fit
   requestAnimationFrame(()=>computeAndApplyScale(true));
 }
@@ -5464,11 +5588,9 @@ function addAllWordsToTree(){
   const wordsToAdd=realWords.filter(w=>!existingOrigIdx.has(w.idx));
   if(!wordsToAdd.length){setHL('Tous les mots sont déjà dans l\'arbre.');return;}
 
-  // Stable bottom Y — below existing tree content
-  let baseY=TOP_Y+4*GY;
-  Object.values(S.nodes).forEach(n=>{
-    if(n.y!==undefined&&n.kind!=='finalPunct'&&n._isFinalPunct!==true&&n.y>baseY-GY) baseY=Math.max(baseY,n.y+GY);
-  });
+  // Fix 8: place new words at same Y as existing mot nodes (terminal row), not below
+  const existingMotYs=Object.values(S.nodes).filter(n=>n.kind==='m'&&n.y!==undefined).map(n=>n.y);
+  let baseY=existingMotYs.length?Math.max(...existingMotYs):(TOP_Y+4*GY);
 
   // Sort strictly by phrase order
   wordsToAdd.sort((a,b)=>a.idx-b.idx);
@@ -5524,6 +5646,14 @@ function addAllWordsToTree(){
 
   // Re-render without resetting camera
   doLayout();
+  // Fix 15: after layout, align punct nodes to the actual terminal row Y
+  const termMotYs=Object.values(S.nodes).filter(n=>n.kind==='m'&&n.y!==undefined).map(n=>n.y);
+  if(termMotYs.length){
+    const termY=Math.max(...termMotYs);
+    Object.values(S.nodes).forEach(n=>{
+      if((n.kind==='punct'||n.kind==='finalPunct'||n._isFinalPunct)&&n._manualPos) n.y=termY;
+    });
+  }
   document.querySelectorAll('.tnode').forEach(e=>e.remove());
   _applyAutoCommaCP();
   Object.values(S.nodes).forEach(n=>renderNode(n));
