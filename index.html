@@ -244,8 +244,10 @@ body.fs-on /* ── FULLSCREEN CSS ──────────────�
 
 /* In FS: hide hbar */
 body.fs-on .hbar{display:none!important;}
-/* In FS: hide the ORIGINAL pbar (before tabs) */
-body.fs-on .pbar:not(#pbar-inline){display:none!important;}
+/* In FS: hide all pbars except pbar-bottom */
+body.fs-on .pbar:not(#pbar-bottom){display:none!important;}
+/* In FS: show pbar-bottom as the phrase bar */
+body.fs-on #pbar-bottom{display:flex!important;}
 /* In FS: hide phrase-bottom reconstructed bar */
 body.fs-on #phrase-bottom{display:none!important;}
 /* In FS: hide tabs */
@@ -514,7 +516,7 @@ body.fs-on .fs-hide{display:none!important;}
           </div>
         </div>
                 <!-- PHRASE BAR FS: visible only in fullscreen, below toolbar -->
-        <div class="pbar fs-only" id="pbar-inline" style="display:none">
+        <div class="pbar" id="pbar-inline" style="display:none">
           <div class="pbar-lbl">Phrase — cliquez ou glissez pour sélectionner · clic long pour classe de mot</div>
           <div class="pwords" id="pwords-fs"><span style="color:var(--t3);font-size:.77rem">Confirmez une phrase pour commencer.</span></div>
           <div class="pactions">
@@ -792,13 +794,17 @@ function sortTreeChildrenByPhraseOrder(){
     const n=S.nodes[id];
     if(!n) return 999999;
     if(n.kind==='m') return (n.origIdx!==undefined&&n.origIdx!==null)?n.origIdx:getWordOrigIdxFromText(n.mot);
-    if(n.kind==='motlink' || n.kind==='intro') return getWordOrigIdxFromText(n.mot);
+    // Use origIdx for intro/motlink/punct if available (set by rel logic), else text lookup
+    if(n.kind==='intro'||n.kind==='motlink')
+      return (n.origIdx!==undefined&&n.origIdx!==null)?n.origIdx:getWordOrigIdxFromText(n.mot);
     const kids=(n.children||[]).filter(cid=>S.nodes[cid]);
     if(!kids.length) return 999999;
     return Math.min(...kids.map(nodeOrder));
   }
   Object.values(S.nodes).forEach(n=>{
     if(!n || !Array.isArray(n.children) || n.children.length<2) return;
+    // For 'rel' nodes: preserve insertion order (member/intro/member alternation)
+    if(n.kind==='rel') return;
     n.children.sort((a,b)=>{
       const ao=nodeOrder(a), bo=nodeOrder(b);
       if(ao!==bo) return ao-bo;
@@ -808,10 +814,41 @@ function sortTreeChildrenByPhraseOrder(){
 }
 function delRec(id){
   if(!S.nodes[id]) return;
+  const parentId=S.nodes[id].parentId;
+  const parentNode=parentId?S.nodes[parentId]:null;
   [...S.nodes[id].children].forEach(c=>delRec(c));
-  const p=S.nodes[id].parentId;
-  if(p&&S.nodes[p]) S.nodes[p].children=S.nodes[p].children.filter(c=>c!==id);
+  if(parentNode) parentNode.children=parentNode.children.filter(c=>c!==id);
   delete S.nodes[id];
+  // If parent is a rel, normalize after deletion
+  if(parentNode&&parentNode.kind==='rel') _normalizeRelAfterDelete(parentId);
+}
+
+function _normalizeRelAfterDelete(relId){
+  const rel=S.nodes[relId]; if(!rel||rel.kind!=='rel') return;
+  const host=S.nodes[rel.hostId]||S.nodes[rel.parentId];
+  // Count real member children (g nodes)
+  const members=rel.children.filter(cid=>S.nodes[cid]&&S.nodes[cid].kind==='g');
+  if(members.length<=1){
+    // Dissolve the rel: move content of remaining member (if any) up into host
+    if(members.length===1){
+      const mem=S.nodes[members[0]];
+      if(mem&&host){
+        // Move member's children into host
+        [...mem.children].forEach(cid=>{
+          const ch=S.nodes[cid]; if(!ch) return;
+          ch.parentId=host.id;
+          if(!host.children.includes(cid)) host.children.push(cid);
+        });
+      }
+    }
+    // Remove the rel from host and delete all rel children
+    if(host) host.children=host.children.filter(c=>c!==relId);
+    // Delete all rel subtree (intros, motlinks, punct, empty members)
+    [...rel.children].forEach(cid=>{
+      if(S.nodes[cid]) { [...(S.nodes[cid].children||[])].forEach(gc=>{ delete S.nodes[gc]; }); delete S.nodes[cid]; }
+    });
+    delete S.nodes[relId];
+  }
 }
 function addFG(parentId,fn,grp,depth){
   return mkNode('fg',{fn,grp,fnCls:FN_CLS[fn]||FN_CLS['default'],grpCls:GRP_CLS[grp]||GRP_CLS['default']},parentId,depth);
@@ -833,6 +870,8 @@ function subTreeWidth(id){
   const n=S.nodes[id]; if(!n) return 1;
   // motlink and punct children are visual-only, don't count them in width
   const realChildren=n.children.filter(c=>S.nodes[c]&&S.nodes[c].kind!=='motlink'&&S.nodes[c].kind!=='punct');
+  // intro inside a rel takes fixed INTRO_W (like P-level coord)
+  if(n.kind==='intro'&&n.parentId&&S.nodes[n.parentId]?.kind==='rel') return 1.2;
   if(!realChildren.length){
     // For terminal nodes, compute width in GX-units based on estimated bubble width
     const bw=_estimateBubbleW(n);
@@ -848,9 +887,13 @@ function layoutSubTree(id,left,structDepth){
   if(!n._manualPos){ n.x=(left+w/2)*GX+70; }
   n._structDepth=structDepth;
   let cur=left;
+  // 'rel' is depth-transparent: its children get the SAME structDepth as rel itself.
+  // This prevents adding a phantom extra level that misaligns class/word bubbles
+  // between coordinated and uncoordinated branches.
+  const childDepth = (n.kind==='rel') ? structDepth : structDepth+1;
   n.children.forEach(c=>{
     if(S.nodes[c]?.kind==='motlink'||S.nodes[c]?.kind==='punct') return; // skip visual-only nodes
-    layoutSubTree(c,cur,structDepth+1);
+    layoutSubTree(c,cur,childDepth);
     cur+=subTreeWidth(c);
   });
 }
@@ -887,7 +930,9 @@ function _getLeftmostX(id){
 // using the full extents of each subtree (not just the root bubble).
 function _fixOverlapPass(id){
   const n=S.nodes[id]; if(!n) return;
-  const realCh=n.children.filter(c=>S.nodes[c]&&S.nodes[c].kind!=='motlink'&&S.nodes[c].kind!=='punct');
+  let realCh=n.children.filter(c=>S.nodes[c]&&S.nodes[c].kind!=='motlink'&&S.nodes[c].kind!=='punct');
+  // For rel nodes: only check overlap between g members, skip intro (fixed-width linkers)
+  if(n.kind==='rel') realCh=realCh.filter(c=>S.nodes[c]?.kind!=='intro');
   // Recurse first (bottom-up)
   realCh.forEach(c=>_fixOverlapPass(c));
   // Then ensure siblings don't overlap using full subtree extents
@@ -914,7 +959,9 @@ function _fixOverlapPass(id){
 
 function getMaxStructDepth(id){
   const n=S.nodes[id]; if(!n) return 0;
-  const realChildren=n.children.filter(c=>S.nodes[c]&&S.nodes[c].kind!=='motlink'&&S.nodes[c].kind!=='punct');
+  let realChildren=n.children.filter(c=>S.nodes[c]&&S.nodes[c].kind!=='motlink'&&S.nodes[c].kind!=='punct');
+  // intro inside rel: excluded from max depth calculation (it stays at its own row)
+  if(n.kind==='rel') realChildren=realChildren.filter(c=>S.nodes[c]?.kind!=='intro');
   if(!realChildren.length) return n._structDepth||0;
   return Math.max(...realChildren.map(c=>getMaxStructDepth(c)));
 }
@@ -938,8 +985,11 @@ function applyY(id){
     const realChildren=n.children.filter(c=>S.nodes[c]&&S.nodes[c].kind!=='motlink'&&S.nodes[c].kind!=='punct');
     if(!realChildren.length){
       // Only force actual word-level leaf nodes to maxD;
-      // structural nodes (fg/g/psub) without children keep their structural depth
-      if(n.kind==='m'||n.kind==='c'||n.kind==='intro'){
+      // structural nodes (fg/g/psub/rel) without children keep their structural depth.
+      // intro inside a rel stays at its structural row (same as the g members),
+      // NOT at terminal row — its motlink will go to terminal via doLayout pass.
+      const isRelIntro=(n.kind==='intro'&&n.parentId&&S.nodes[n.parentId]?.kind==='rel');
+      if((n.kind==='m'||n.kind==='c'||(n.kind==='intro'&&!isRelIntro))){
         n._structDepth=maxD;
       }
     } else {
@@ -967,10 +1017,12 @@ function applyYWithMax(id, globalMax){
   }
   const realChildren=n.children.filter(c=>S.nodes[c]&&S.nodes[c].kind!=='motlink'&&S.nodes[c].kind!=='punct');
   // Only TRUE leaf nodes (mot/c with no real children) go to globalMax
+  // intro inside rel keeps its own structDepth (depth-transparent row)
   const isLeaf=!realChildren.length;
   const isMot=(n.kind==='m'||n.kind==='c');
-  if(isLeaf && isMot) n._structDepth=globalMax;
-  // fg/g/psub intermediate nodes keep their _structDepth as set by layoutSubTree
+  const isRelIntro=(n.kind==='intro'&&n.parentId&&S.nodes[n.parentId]?.kind==='rel');
+  if(isLeaf && isMot && !isRelIntro) n._structDepth=globalMax;
+  // fg/g/psub/rel intermediate nodes keep their _structDepth
   if(!n._manualPos) n.y=TOP_Y+(n._structDepth||0)*GY;
   realChildren.forEach(c=>applyYWithMax(c, globalMax));
 }
@@ -1071,6 +1123,56 @@ function doLayout(){
     applyY(S.rootId);
   }
 
+  // ── Local rel: fix intro X (midpoint of adjacent members) and position motlink/punct ──
+  // Must run after applyY so structDepths are final. Rel is depth-transparent:
+  // intro and g members share the same structDepth row.
+  function _collectRelTerminalY(nid){
+    // Find the maximum Y of any m-node in this subtree
+    const nn=S.nodes[nid]; if(!nn) return -Infinity;
+    if(nn.kind==='m'&&nn.y!==undefined) return nn.y;
+    const kids=(nn.children||[]).filter(c=>S.nodes[c]&&S.nodes[c].kind!=='motlink'&&S.nodes[c].kind!=='punct');
+    if(!kids.length) return -Infinity;
+    return Math.max(...kids.map(c=>_collectRelTerminalY(c)));
+  }
+  const allRelNodes=Object.values(S.nodes).filter(n=>n.kind==='rel');
+  allRelNodes.forEach(rel=>{
+    // Find terminal Y from all m-nodes in this rel's subtree
+    let relBottomY=_collectRelTerminalY(rel.id);
+    if(relBottomY===-Infinity){
+      // No words yet — estimate: rel row + 2 GY levels down
+      relBottomY=TOP_Y+(rel._structDepth||0)*GY+GY*2;
+    }
+
+    // Fix intro X: midpoint between adjacent members
+    const relKids=rel.children; // strict alternation: g, intro, g, intro, g...
+    for(let ki=0;ki<relKids.length;ki++){
+      const cn=S.nodes[relKids[ki]]; if(!cn||cn.kind!=='intro') continue;
+      const leftMemId=relKids[ki-1];
+      const rightMemId=relKids[ki+1];
+      const lx=leftMemId&&S.nodes[leftMemId]?S.nodes[leftMemId].x:null;
+      const rx=rightMemId&&S.nodes[rightMemId]?S.nodes[rightMemId].x:null;
+      if(!cn._manualPos){
+        if(lx!==null&&rx!==null) cn.x=(lx+rx)/2;
+        else if(lx!==null) cn.x=lx+GX*1.2;
+        else if(rx!==null) cn.x=rx-GX*1.2;
+        // Y is already correctly set by applyYInner (depth-transparent: same row as members)
+      }
+      // Motlink descends to terminal row at same X as intro
+      const mlId2=cn.children.find(c=>S.nodes[c]?.kind==='motlink');
+      const punctIds2=cn.children.filter(c=>S.nodes[c]?.kind==='punct');
+      if(mlId2&&S.nodes[mlId2]&&!S.nodes[mlId2]._manualPos){
+        S.nodes[mlId2].x=cn.x; S.nodes[mlId2].y=relBottomY;
+      }
+      const mlX2=mlId2&&S.nodes[mlId2]?S.nodes[mlId2].x:cn.x;
+      punctIds2.forEach(pid=>{
+        const pn=S.nodes[pid]; if(!pn||pn._manualPos) return;
+        const adj=cn.adjPunct&&cn.adjPunct.find(a=>a.text===pn.mot);
+        const offset=(adj&&adj.pos==='before')?-70:70;
+        pn.x=mlX2+offset; pn.y=relBottomY;
+      });
+    }
+  });
+
   const allN=Object.values(S.nodes).filter(n=>n.y>-100&&n.y!==undefined);
   const maxX=allN.length?Math.max(...allN.map(n=>n.x),600)+200:800;
   const maxY=allN.length?Math.max(...allN.map(n=>n.y),350)+130:500;
@@ -1085,6 +1187,7 @@ function doLayout(){
     ac.style.width=maxX+'px';ac.style.height=maxY+'px';
     ac._naturalW=maxX; ac._naturalH=maxY;
   }
+
   // Re-layout free nodes to prevent overlapping
   _layoutFreeNodes();
 }
@@ -1449,6 +1552,10 @@ function renderNode(n,animId){
   else if(n.kind==='intro') kindCls='nk-intro';
   else if(n.kind==='motlink') kindCls='nk-motlink';
   else if(n.kind==='punct'||n.kind==='finalPunct') kindCls='nk-punct';
+  else if(n.kind==='rel') {
+    // rel is a non-visible structural container — skip rendering bubble
+    return;
+  }
 
   let cls='tnode '+kindCls;
   if(animId&&animId===n.id) cls+=' new';
@@ -1492,7 +1599,10 @@ function renderNode(n,animId){
     if(n.fn) inner=`<span class="node-fn">${n.fn}${coordSuffix}</span><span class="node-grp">${n.pstype}</span>`;
     else inner=`<span class="node-sub">Sub.</span><span class="node-main">${n.pstype}</span>`;
   } else if(n.kind==='fg'){
-    inner=`<span class="node-fn">${n.fn}${coordSuffix}</span><span class="node-grp">${n.grp}</span>`;
+    // If this fg hosts a local rel, show coordination type instead of plain grp
+    const _relChild=n.children&&n.children.map(c=>S.nodes[c]).find(ch=>ch?.kind==='rel');
+    const _grpLabel=_relChild?(_relChild.relType==='coord'?'coord.':_relChild.relType==='juxta'?'juxt.':'énum.'):n.grp;
+    inner=`<span class="node-fn">${n.fn}${coordSuffix}</span><span class="node-grp">${_grpLabel}</span>`;
   } else if(n.kind==='g'){
     inner=`<span class="node-main">${n.grp}</span>`;
   } else if(n.kind==='c'){
@@ -1709,9 +1819,20 @@ function getNodeHalfH(id){
 }
 function renderEdges(){
   const svg=document.getElementById('tree-svg'); svg.innerHTML='';
+  const drawnDots=new Set(); // track (x,y) to avoid duplicate dots at same host junction
   Object.values(S.nodes).forEach(n=>{
     if(!n.parentId) return;
-    const p=S.nodes[n.parentId]; if(!p) return;
+    let p=S.nodes[n.parentId]; if(!p) return;
+
+    // For nodes whose direct parent is a 'rel' (invisible), route edge from rel's host
+    if(p.kind==='rel'){
+      const hostId=p.hostId||p.parentId;
+      const host=S.nodes[hostId];
+      if(host) p=host; else return;
+    }
+    // rel itself: invisible, skip entirely
+    if(n.kind==='rel') return;
+
     const x1=p.x, y1=p.y+getNodeHalfH(p.id), x2=n.x, y2=n.y-getNodeHalfH(n.id);
 
     if(n.kind==='motlink'){
@@ -1728,6 +1849,7 @@ function renderEdges(){
     if(n.kind==='punct'||n.kind==='finalPunct'){
       return; // No line drawn to punct/finalPunct bubbles
     }
+
     if(n.kind==='m'||n.kind==='intro'){
       const line=document.createElementNS('http://www.w3.org/2000/svg','line');
       line.setAttribute('x1',x1);line.setAttribute('y1',y1);line.setAttribute('x2',x2);line.setAttribute('y2',y2);
@@ -1741,9 +1863,13 @@ function renderEdges(){
       path.setAttribute('stroke','#c5bfb3');path.setAttribute('stroke-width','1.8');path.setAttribute('fill','none');
       svg.appendChild(path);
     }
-    const dot=document.createElementNS('http://www.w3.org/2000/svg','circle');
-    dot.setAttribute('cx',x1);dot.setAttribute('cy',y1);dot.setAttribute('r','3');dot.setAttribute('fill','#c5bfb3');
-    svg.appendChild(dot);
+    const dotKey=Math.round(x1)+'_'+Math.round(y1);
+    if(!drawnDots.has(dotKey)){
+      drawnDots.add(dotKey);
+      const dot=document.createElementNS('http://www.w3.org/2000/svg','circle');
+      dot.setAttribute('cx',x1);dot.setAttribute('cy',y1);dot.setAttribute('r','3');dot.setAttribute('fill','#c5bfb3');
+      svg.appendChild(dot);
+    }
   });
 
   // Punctuation nodes (kind='punct') are rendered as regular tnode elements
@@ -1772,14 +1898,15 @@ function renderPhraseBottom(){
 
   // Collect motlinks + their intro's adjPunct
   const motlinks=Object.values(S.nodes).filter(n=>n.kind==='motlink');
-  // Build a map: motlinkId → {introMot, adjPunct:{before,after}}
+  // Build a map: motlinkId → {introMot, origIdx, adjPunct:{before,after}}
   const mlInfoById={};
   Object.values(S.nodes).forEach(n=>{
     if(n.kind!=='intro') return;
-    const mlId=n.children&&n.children[0];
+    const mlId=n.children&&n.children.find(c=>S.nodes[c]?.kind==='motlink');
     if(!mlId) return;
     mlInfoById[mlId]={
       introMot:n.mot,
+      origIdx:(n.origIdx!==undefined&&n.origIdx!==null)?n.origIdx:getWordOrigIdxFromText(n.mot),
       before:(n.adjPunct||[]).filter(a=>a.pos==='before').map(a=>a.text),
       after:(n.adjPunct||[]).filter(a=>a.pos==='after').map(a=>a.text),
     };
@@ -1789,8 +1916,10 @@ function renderPhraseBottom(){
   const allItems=[
     ...mots.map(m=>({type:'word',mot:m,origIdx:getOrigIdxForMotNode(m)})),
     ...motlinks.map(ml=>{
-      const info=mlInfoById[ml.id]||{introMot:ml.mot,before:[],after:[]};
-      return {type:'motlink',mot:ml,info,origIdx:getOrigIdx(info.introMot)};
+      const info=mlInfoById[ml.id]||{introMot:ml.mot,origIdx:999999,before:[],after:[]};
+      // Use origIdx from mlInfoById if available, else text lookup
+      const mlOrigIdx=info.origIdx!==undefined?info.origIdx:getWordOrigIdxFromText(info.introMot);
+      return {type:'motlink',mot:ml,info,origIdx:mlOrigIdx};
     })
   ].sort((a,b)=>{
     const ai=a.origIdx>=0?a.origIdx:99999;
@@ -1799,11 +1928,20 @@ function renderPhraseBottom(){
     return (a.mot.x||0)-(b.mot.x||0);
   });
 
-  // Collect all punctuation already claimed by motlinks (to avoid duplicates)
-  const claimedPunct=new Set();
-  Object.values(mlInfoById).forEach(info=>{
-    info.before.forEach(t=>claimedPunct.add(t));
-    info.after.forEach(t=>claimedPunct.add(t));
+  // Collect all punctuation already claimed by motlinks — use origIdx, not text
+  const claimedPunctIdx=new Set();
+  Object.values(S.nodes).forEach(n=>{
+    if(n.kind==='punct'&&n.parentId){
+      const par=S.nodes[n.parentId];
+      if(par&&par.kind==='intro'&&n.origIdx!==undefined&&n.origIdx!==null)
+        claimedPunctIdx.add(n.origIdx);
+    }
+    if(n.kind==='intro'&&n.adjPunct){
+      n.adjPunct.forEach(ap=>{
+        const apIdx=ap.wIdx!==undefined?ap.wIdx:S.words.findIndex(w=>w.text===ap.text&&w.isPunct);
+        if(apIdx>=0) claimedPunctIdx.add(apIdx);
+      });
+    }
   });
 
   // Build final sequence with punctuation
@@ -1814,14 +1952,13 @@ function renderPhraseBottom(){
       withPunct.push({type:'motlink-word',mot:item.mot});
       item.info.after.forEach(t=>withPunct.push({type:'locked-punct',text:t}));
     } else {
-      const txt=item.mot.mot;
       withPunct.push({type:'word',mot:item.mot});
-      // Insert following punctuation if not already claimed by a motlink
+      // Insert following punctuation if not already claimed by a relation intro
       const wi=getOrigIdxForMotNode(item.mot);
       if(wi>=0&&S.words[wi+1]&&S.words[wi+1].isPunct){
-        const pt=S.words[wi+1].text;
-        if(!claimedPunct.has(pt)){
-          withPunct.push({type:'punct',text:pt});
+        const ptIdx=wi+1;
+        if(!claimedPunctIdx.has(ptIdx)){
+          withPunct.push({type:'punct',text:S.words[wi+1].text});
         }
       }
     }
@@ -1894,8 +2031,24 @@ function makeDrag(el,node){
 // ══════════════════════════════════════════════════════
 //  WORD DROP (from phrase bar chips)
 // ══════════════════════════════════════════════════════
+function getOwnedTokenIdxs(){
+  // Returns Set of origIdx already consumed by tree nodes (m, intro, motlink, rel-punct)
+  const used=new Set();
+  Object.values(S.nodes).forEach(n=>{
+    if(n.origIdx!==undefined&&n.origIdx!==null&&n.origIdx!==999999){
+      if(n.kind==='m'||n.kind==='intro'||n.kind==='motlink') used.add(n.origIdx);
+      // punct nodes that are children of intro (relation markers)
+      if(n.kind==='punct'&&n.parentId){
+        const par=S.nodes[n.parentId];
+        if(par&&par.kind==='intro') used.add(n.origIdx);
+      }
+    }
+  });
+  return used;
+}
 function getWordsInTree(){
   // Returns a Set of mot strings already placed in the tree (includes coord/juxta intro words)
+  // Kept for backward compatibility; token-based checks use getOwnedTokenIdxs()
   const used=new Set();
   Object.values(S.nodes).forEach(n=>{
     if(n.kind==='m') used.add(n.mot);
@@ -1920,9 +2073,11 @@ function dropWord(nodeId){
     wordArr=wordSpecs.map(w=>w.text); txt=wordArr.join(' ');
   }
   if(!txt) return;
-  // Filter out words already in tree
+  // Filter out words already in tree (by text AND by origIdx for rel markers)
   const inTree=getWordsInTree();
-  wordArr=wordArr.filter(w=>!inTree.has(w));
+  const ownedIdx=getOwnedTokenIdxs();
+  wordSpecs=wordSpecs.filter(ws=>!inTree.has(ws.text)&&!ownedIdx.has(ws.origIdx));
+  wordArr=wordSpecs.map(w=>w.text);
   if(!wordArr.length){setHL('⚠️ Ces mots sont déjà placés dans l\'arbre.');clearSel();return;}
   txt=wordArr.join(' ');
 
@@ -1930,6 +2085,16 @@ function dropWord(nodeId){
     showDropOnP(n,wordArr,wordSpecs); return;
   }
   if(n.kind==='fg'||n.kind==='g'){
+    // If this node hosts a rel, redirect drop to the active member
+    const _dwRelId=n.children.find(cid=>S.nodes[cid]?.kind==='rel');
+    if(_dwRelId){
+      const _dwRel=S.nodes[_dwRelId];
+      const _dwTarget=_dwRel.activeMemberId&&S.nodes[_dwRel.activeMemberId]?_dwRel.activeMemberId:null;
+      if(_dwTarget){
+        showDropChoiceMenu(S.nodes[_dwTarget], txt, wordArr, wordSpecs);
+        return;
+      }
+    }
     // Show the same choice menu as drag-and-drop (class + sub-group options)
     showDropChoiceMenu(n, txt, wordArr, wordSpecs);
     return;
@@ -2038,6 +2203,13 @@ function showDropGrpForFn(parentId,fn,depth,wordArr,wordSpecs,cx,cy){
 }
 
 function showDropChoiceMenu(n,txt,wordArr,wordSpecs){
+  // If target has a rel, redirect to active member
+  const _sdRelId=n.children&&n.children.find(cid=>S.nodes[cid]?.kind==='rel');
+  if(_sdRelId){
+    const _sdRel=S.nodes[_sdRelId];
+    const _sdMem=_sdRel.activeMemberId&&S.nodes[_sdRel.activeMemberId];
+    if(_sdMem){ n=_sdMem; } // silently redirect
+  }
   const parentGrp=n.kind==='fg'?n.grp:(n.kind==='psub'?n.pstype:(n.grp||''));
   const subGrps=SUBGRP4GRP[parentGrp]||SUBGRP4GRP['default'];
   const nodeEl=document.getElementById('nd-'+n.id);
@@ -2189,6 +2361,38 @@ function dropMotNodes(nodeId,motIds){
     buildCtxAt('Déplacer vers '+getNodeLabel(target),items,cx,cy);return;
   }
   if(target.kind==='fg'||target.kind==='g'){
+    // If target hosts a rel, redirect drop to the last empty member
+    const _hostRelId=target.children.find(cid=>S.nodes[cid]?.kind==='rel');
+    if(_hostRelId){
+      const _rel=S.nodes[_hostRelId];
+      // Use activeMemberId if set, otherwise fall back to last empty member
+      let _emptyMem=_rel.activeMemberId&&S.nodes[_rel.activeMemberId]?_rel.activeMemberId:null;
+      if(!_emptyMem){
+        const _members=(_rel.children||[]).filter(cid=>S.nodes[cid]?.kind==='g');
+        _emptyMem=_members.slice().reverse().find(cid=>{
+          const mem=S.nodes[cid];
+          return mem&&(!mem.children||mem.children.filter(c=>S.nodes[c]&&S.nodes[c].kind!=='motlink'&&S.nodes[c].kind!=='punct').length===0);
+        })||(_members.length?_members[_members.length-1]:null);
+      }
+      if(_emptyMem){
+        // Redirect: use the active member as the target
+        const _newTarget=S.nodes[_emptyMem];
+        const _cx=cx, _cy=cy;
+        const _parentGrp=_newTarget.grp||target.grp||'GN';
+        const _subGrps=SUBGRP4GRP[_parentGrp]||SUBGRP4GRP['default'];
+        const _grpItems=_subGrps.map(g=>{
+          const col=GRP_COLORS[g]||GRP_COLORS['default'];
+          return mkItemColor('📦 Sous-groupe : '+g,col.bg,col.b,()=>showSubFnForDrop_Move(_newTarget,g,wordSpecs,mots,_cx,_cy));
+        });
+        const _moveItem=mkItemColor('📥 Ajouter dans ce membre','var(--abg)','var(--ac)',()=>{
+          snap('move');cleanupMotNodes(mots);
+          wordSpecs.forEach(w=>{const cid=mkNode('c',{cls:w.cls||'?'},_emptyMem,_newTarget.depth+1);mkNode('m',{mot:w.text,origIdx:w.origIdx},cid,_newTarget.depth+2);});
+          renderTree(_emptyMem);setHL('Mot(s) ajouté(s) dans le membre.');clearAllSel();
+        });
+        buildCtxAt('Ajouter dans '+_parentGrp,[_moveItem,null,..._grpItems],_cx,_cy);
+        return;
+      }
+    }
     const parentGrp=target.kind==='fg'?target.grp:(target.grp||'');
     const subGrps=SUBGRP4GRP[parentGrp]||SUBGRP4GRP['default'];
     // Check if the mots are already in the target group
@@ -2459,26 +2663,123 @@ function applyCoordination(n,label,linkWord,adjPunct){
     setHL(lastLabel+' ajouté.');
 
   } else if(n.kind==='fg'||n.kind==='g'){
-    // Fix 12: coordination/juxtaposition inside a group.
-    // Add an intro node (with motlink child) directly inside the group,
-    // using the same intro/motlink structure as for P-level coordination.
+    // Coordination/juxtaposition LOCALE à l'intérieur d'un groupe.
+    // Utilise un nœud 'rel' (relation locale) — jamais injecté dans S.coordRoots.
     snap('coord');
-    const introId3=mkId();
-    S.nodes[introId3]={id:introId3,kind:'intro',introType:label,mot:linkWord,adjPunct:adjPunct,
-      parentId:n.id,children:[],depth:n.depth+1,x:0,y:0,mp:false,_manualPos:false,isCoord:true};
-    const mlId3=mkId();
-    S.nodes[mlId3]={id:mlId3,kind:'motlink',mot:linkWord,
-      parentId:introId3,children:[],depth:n.depth+2,x:0,y:0,mp:false,_manualPos:false};
-    S.nodes[introId3].children=[mlId3];
-    adjPunct.forEach(ap=>{
-      const pId3=mkId();
-      S.nodes[pId3]={id:pId3,kind:'punct',mot:ap.text,pos:ap.pos,
-        parentId:introId3,children:[],depth:n.depth+2,x:0,y:0,mp:false,_manualPos:false};
-      S.nodes[introId3].children.push(pId3);
+    const hostNode=S.nodes[n.id]; if(!hostNode) return;
+    const relType=label==='Coordonnant'?'coord':'juxta';
+    const memberGrp=hostNode.grp||'GN';
+    const linkOrigIdx=S.words.findIndex(w=>w.text===linkWord&&!w.isPunct);
+
+    // Remove standalone 'm' for linkWord to prevent duplicates (same as P-level fix)
+    Object.keys(S.nodes).forEach(nid=>{
+      const mn=S.nodes[nid];
+      if(mn&&mn.kind==='m'&&mn.mot===linkWord&&(mn.parentId===null||!S.nodes[mn.parentId]))
+        delete S.nodes[nid];
     });
-    if(S.nodes[n.id]) S.nodes[n.id].children.push(introId3);
-    renderTree(introId3);
-    setHL(label+' « '+linkWord+' » ajouté dans le groupe.');
+
+    // Find existing rel child of this host
+    const existingRelId=hostNode.children.find(cid=>S.nodes[cid]?.kind==='rel');
+
+    if(!existingRelId){
+      // ── Cas A : pas encore de rel — créer toute la structure ──────────────
+      const relId=mkId();
+
+      // Collect real structural children of host (not motlink/punct) to move into first member
+      const realKids=hostNode.children.filter(cid=>{
+        const ch=S.nodes[cid]; if(!ch) return false;
+        return ch.kind!=='motlink'&&ch.kind!=='punct';
+      });
+
+      // Create first member (g) with existing real children inside
+      const m1Id=mkId();
+      S.nodes[m1Id]={id:m1Id,kind:'g',grp:memberGrp,grpCls:GRP_CLS[memberGrp]||GRP_CLS['default'],
+        parentId:relId,children:[],depth:hostNode.depth+2,x:0,y:0,mp:false,_manualPos:false};
+      // Move existing real children into member 1
+      realKids.forEach(cid=>{
+        const ch=S.nodes[cid]; if(!ch) return;
+        ch.parentId=m1Id;
+        S.nodes[m1Id].children.push(cid);
+      });
+
+      // Create intro with motlink and punct
+      const introId=mkId();
+      const mlId=mkId();
+      S.nodes[mlId]={id:mlId,kind:'motlink',mot:linkWord,origIdx:linkOrigIdx,
+        parentId:introId,children:[],depth:hostNode.depth+4,x:0,y:0,mp:false,_manualPos:false};
+      const punctIds=[];
+      adjPunct.forEach(ap=>{
+        const pId=mkId();
+        const apOrigIdx=ap.wIdx!==undefined?ap.wIdx:S.words.findIndex(w=>w.text===ap.text&&w.isPunct);
+        S.nodes[pId]={id:pId,kind:'punct',mot:ap.text,pos:ap.pos,origIdx:apOrigIdx,
+          parentId:introId,children:[],depth:hostNode.depth+4,x:0,y:0,mp:false,_manualPos:false};
+        punctIds.push(pId);
+      });
+      S.nodes[introId]={id:introId,kind:'intro',introType:label,mot:linkWord,
+        origIdx:linkOrigIdx,adjPunct:adjPunct,
+        parentId:relId,children:[mlId,...punctIds],
+        depth:hostNode.depth+3,x:0,y:0,mp:false,_manualPos:false};
+
+      // Create second member (empty, ready to receive words)
+      const m2Id=mkId();
+      S.nodes[m2Id]={id:m2Id,kind:'g',grp:memberGrp,grpCls:GRP_CLS[memberGrp]||GRP_CLS['default'],
+        parentId:relId,children:[],depth:hostNode.depth+2,x:0,y:0,mp:false,_manualPos:false};
+
+      // Create the rel node
+      S.nodes[relId]={id:relId,kind:'rel',relType,hostId:n.id,memberGrp,
+        activeMemberId:m2Id,
+        parentId:n.id,children:[m1Id,introId,m2Id],
+        depth:hostNode.depth+1,x:0,y:0,mp:false,_manualPos:false};
+
+      // Replace host's children with [rel] only (visual nodes stay separate)
+      hostNode.children=hostNode.children.filter(cid=>{
+        const ch=S.nodes[cid]; if(!ch) return false;
+        return ch.kind==='motlink'||ch.kind==='punct';
+      });
+      hostNode.children.unshift(relId);
+
+      renderTree(m2Id);
+      setHL(label+' « '+linkWord+' » — groupe 1 à gauche, groupe 2 à droite.');
+
+    } else {
+      // ── Cas B : rel existe déjà — ajouter intro + membre ──────────────────
+      const relNode=S.nodes[existingRelId];
+      if(!relNode) return;
+
+      // Update relType if mixing coord and juxta
+      if(relNode.relType!==relType) relNode.relType='mixed';
+
+      // Create new intro
+      const introId2=mkId();
+      const mlId2=mkId();
+      S.nodes[mlId2]={id:mlId2,kind:'motlink',mot:linkWord,origIdx:linkOrigIdx,
+        parentId:introId2,children:[],depth:relNode.depth+2,x:0,y:0,mp:false,_manualPos:false};
+      const punctIds2=[];
+      adjPunct.forEach(ap=>{
+        const pId2=mkId();
+        const apOrigIdx2=ap.wIdx!==undefined?ap.wIdx:S.words.findIndex(w=>w.text===ap.text&&w.isPunct);
+        S.nodes[pId2]={id:pId2,kind:'punct',mot:ap.text,pos:ap.pos,origIdx:apOrigIdx2,
+          parentId:introId2,children:[],depth:relNode.depth+2,x:0,y:0,mp:false,_manualPos:false};
+        punctIds2.push(pId2);
+      });
+      S.nodes[introId2]={id:introId2,kind:'intro',introType:label,mot:linkWord,
+        origIdx:linkOrigIdx,adjPunct:adjPunct,
+        parentId:existingRelId,children:[mlId2,...punctIds2],
+        depth:relNode.depth+1,x:0,y:0,mp:false,_manualPos:false};
+
+      // Create new member
+      const newMemId=mkId();
+      S.nodes[newMemId]={id:newMemId,kind:'g',grp:relNode.memberGrp||memberGrp,
+        grpCls:GRP_CLS[relNode.memberGrp||memberGrp]||GRP_CLS['default'],
+        parentId:existingRelId,children:[],depth:relNode.depth+1,x:0,y:0,mp:false,_manualPos:false};
+
+      // Maintain alternating order: intro before new member
+      relNode.children.push(introId2, newMemId);
+      relNode.activeMemberId=newMemId;
+
+      renderTree(newMemId);
+      setHL('Nouveau membre ajouté.');
+    }
   }
 }
 
@@ -4106,6 +4407,21 @@ function renderBoites(){
       const fnLabel = n.fn + (sfx ? `<span style="font-size:.58rem;opacity:.6"> ${sfx}</span>` : '');
       return `<div class="bxw-fg"><div class="bxw-fn">${fnLabel}</div><div class="bxw-border"><div class="bxw-inner">${childrenHTML}</div></div><div class="bxw-grp">${n.grp}</div></div>`;
     }
+    if(n.kind === 'rel'){
+      // Local coordination/juxtaposition: render as alternating member|intro|member row
+      const relChildren=n.children.filter(c=>nodes[c]&&nodes[c].kind!=='motlink'&&nodes[c].kind!=='punct');
+      const relHTML=relChildren.map(cid=>{
+        const cn=nodes[cid]; if(!cn) return '';
+        if(cn.kind==='intro'){
+          return `<div class="bxw-coord-col"><div class="bxw-coord-lbl">${cn.introType||'lien'}</div><div class="bxw-coord-mot">${cn.mot||'?'}</div></div>`;
+        }
+        // member (g node)
+        const memCh=cn.children.filter(c=>nodes[c]&&nodes[c].kind!=='motlink'&&nodes[c].kind!=='punct');
+        const memHTML=memCh.map(c=>buildBox(c)).join('');
+        return `<div class="bxw-fg" style="align-self:flex-end"><div class="bxw-border bxw-border-dashed"><div class="bxw-inner">${memHTML}</div></div><div class="bxw-grp">${cn.grp||''}</div></div>`;
+      }).join('');
+      return `<div class="bxw-inner" style="gap:8px">${relHTML}</div>`;
+    }
     if(n.kind === 'g'){
       return `<div class="bxw-fg"><div class="bxw-border bxw-border-dashed"><div class="bxw-inner">${childrenHTML}</div></div><div class="bxw-grp">${n.grp}</div></div>`;
     }
@@ -5189,17 +5505,36 @@ function showManipResult(htmlContent){
   if(!card) return;
   card.innerHTML=htmlContent+'<button onclick="document.getElementById(\'manip-result-card\').style.display=\'none\'" style="margin-left:8px;background:none;border:none;cursor:pointer;font-size:.9rem;color:var(--t3);flex-shrink:0;padding:2px 6px;border-radius:4px">✕</button>';
   // Fix 5: adapt popup size for fullscreen (readable on projector/tableau)
+  // Center on tree-outer, not the full viewport
   const isFs=document.body.classList.contains('fs-on');
-  card.style.bottom=isFs?'auto':'72px';
-  card.style.top=isFs?'50%':'auto';
-  card.style.left='50%';
-  card.style.transform=isFs?'translate(-50%,-50%)':'translateX(-50%)';
-  card.style.maxWidth=isFs?'92vw':'720px';
-  card.style.width=isFs?'90vw':'max-content';
-  card.style.fontSize=isFs?'1.35rem':'.85rem';
-  card.style.padding=isFs?'22px 28px':'10px 16px';
-  card.style.zIndex=isFs?'900':'600';
-  card.style.lineHeight=isFs?'1.8':'';
+  if(isFs){
+    const treeOuter=document.getElementById('tree-outer');
+    const tr=treeOuter?treeOuter.getBoundingClientRect():{left:0,top:0,width:window.innerWidth,height:window.innerHeight};
+    const popW=Math.min(tr.width*0.92, tr.width-32);
+    card.style.position='fixed';
+    card.style.left=(tr.left+tr.width/2)+'px';
+    card.style.top=(tr.top+tr.height/2)+'px';
+    card.style.transform='translate(-50%,-50%)';
+    card.style.maxWidth=popW+'px';
+    card.style.width=popW+'px';
+    card.style.bottom='auto';
+    card.style.fontSize='1.35rem';
+    card.style.padding='22px 28px';
+    card.style.zIndex='900';
+    card.style.lineHeight='1.8';
+  } else {
+    card.style.position='fixed';
+    card.style.bottom='72px';
+    card.style.top='auto';
+    card.style.left='50%';
+    card.style.transform='translateX(-50%)';
+    card.style.maxWidth='720px';
+    card.style.width='max-content';
+    card.style.fontSize='.85rem';
+    card.style.padding='10px 16px';
+    card.style.zIndex='600';
+    card.style.lineHeight='';
+  }
   card.style.display='flex';
   if(card._t) clearTimeout(card._t);
   card._t=setTimeout(()=>{card.style.display='none';},9000);
@@ -5565,8 +5900,9 @@ function _updateAddAllBtn(){
   const btn=document.getElementById('addAllWordsBtn');
   if(!btn||!S.words||!S.words.length){ if(btn){btn.style.background='';btn.style.borderColor='';btn.style.color='';} return; }
   const realWords=S.words.filter(w=>!w.isPunct);
-  const inTree=new Set(Object.values(S.nodes).filter(n=>n.kind==='m').map(n=>n.origIdx));
-  const hasUnplaced=realWords.some(w=>!inTree.has(w.idx));
+  // Use getOwnedTokenIdxs to account for intro/motlink tokens too
+  const owned=getOwnedTokenIdxs();
+  const hasUnplaced=realWords.some(w=>!owned.has(w.idx));
   if(hasUnplaced){
     btn.style.background='var(--abg)';btn.style.borderColor='var(--ac)';btn.style.color='var(--ac)';
   } else {
@@ -5581,8 +5917,8 @@ function addAllWordsToTree(){
   if(!S.words||!S.words.length){setHL('Confirmez d\'abord une phrase.');return;}
   snap('addAll');
 
-  const existingMots=Object.values(S.nodes).filter(n=>n.kind==='m');
-  const existingOrigIdx=new Set(existingMots.map(n=>n.origIdx));
+  // Use getOwnedTokenIdxs to exclude words already used by intro/motlink/rel too
+  const existingOrigIdx=getOwnedTokenIdxs();
 
   const realWords=S.words.filter(w=>!w.isPunct);
   const wordsToAdd=realWords.filter(w=>!existingOrigIdx.has(w.idx));
