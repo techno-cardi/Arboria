@@ -83,6 +83,8 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:.59rem;background:var(--s2)
 .pw-cls{font-size:.52rem;font-weight:700;letter-spacing:.04em;color:var(--t3);line-height:1;margin-top:1px;min-height:.65rem}
 .pw.sel{background:#fef9c3;border-color:#fbbf24;color:#92400e}
 .pw.sel .pw-cls{color:#b45309}
+.pw.owned{opacity:.4;cursor:default;pointer-events:none;border-color:#a5b4fc}
+.pw-punct-comma.owned{opacity:.4;cursor:default;pointer-events:none}
 .pw.dragging-word{opacity:.35}
 .pw-punct{padding:4px 3px;border-radius:4px;background:transparent;border:none;font-family:'JetBrains Mono',monospace;font-size:.86rem;color:var(--t3);user-select:none;display:flex;flex-direction:column;align-items:center}
 .pw-punct-comma{cursor:pointer;padding:3px 6px;border-radius:5px;border:2px solid transparent;transition:all .1s}
@@ -693,7 +695,11 @@ const GY = 92;
 const TOP_Y = 70;
 
 const ALL_CLASSES = ['Dét.','Nom','Adj.','Verbe','Pron.','Adv.','Prép.','Conj.','Interj.'];
-const CLS_CB = {'Nom':'Nom','Dét.':'Det','Adj.':'Adj','Verbe':'Verbe','Pron.':'Pron','Adv.':'Adv','Prép.':'Prep','Conj.':'Conj','Interj.':'Interj','Subordonnant':'Conj','?':'_'};
+// Dedicated menu order: 2 columns of 5 items each (display labels → internal values)
+// Left: Dét., Nom, Adj., Pronom, Verbe  |  Right: Prép., Adv., Conj., ., Interj.
+const CLASS_MENU_LEFT  = [{lbl:'Dét.',val:'Dét.'},{lbl:'Nom',val:'Nom'},{lbl:'Adj.',val:'Adj.'},{lbl:'Pronom',val:'Pron.'},{lbl:'Verbe',val:'Verbe'}];
+const CLASS_MENU_RIGHT = [{lbl:'Prép.',val:'Prép.'},{lbl:'Adv.',val:'Adv.'},{lbl:'Conj.',val:'Conj.'},{lbl:'.',val:'.'},{lbl:'Interj.',val:'Interj.'}];
+const CLS_CB = {'Nom':'Nom','Dét.':'Det','Adj.':'Adj','Verbe':'Verbe','Pron.':'Pron','Adv.':'Adv','Prép.':'Prep','Conj.':'Conj','Interj.':'Interj','Subordonnant':'Conj','.':'_','?':'_'};
 
 const GRP4FN = {
   'Sujet':['GN','GVinf.','Pron.','Psub compl.','Psub rel.'],
@@ -789,6 +795,19 @@ function mkNode(kind,opts,parentId,depthHint){
   if(parentId&&S.nodes[parentId]) S.nodes[parentId].children.push(id);
   return id;
 }
+// ── Target resolution: redirect adds to active rel member ──
+function _resolveTargetForAdd(nodeId){
+  const n=S.nodes[nodeId]; if(!n) return nodeId;
+  if(n.kind!=='fg'&&n.kind!=='g') return nodeId;
+  const relId=n.children.find(cid=>S.nodes[cid]?.kind==='rel');
+  if(!relId) return nodeId;
+  const rel=S.nodes[relId];
+  if(rel&&rel.activeMemberId&&S.nodes[rel.activeMemberId]) return rel.activeMemberId;
+  // fallback: last g member
+  const members=rel.children.filter(cid=>S.nodes[cid]?.kind==='g');
+  return members.length?members[members.length-1]:nodeId;
+}
+
 function sortTreeChildrenByPhraseOrder(){
   function nodeOrder(id){
     const n=S.nodes[id];
@@ -828,6 +847,23 @@ function _normalizeRelAfterDelete(relId){
   const host=S.nodes[rel.hostId]||S.nodes[rel.parentId];
   // Count real member children (g nodes)
   const members=rel.children.filter(cid=>S.nodes[cid]&&S.nodes[cid].kind==='g');
+  const intros=rel.children.filter(cid=>S.nodes[cid]&&S.nodes[cid].kind==='intro');
+
+  // Update activeMemberId if it was deleted
+  if(rel.activeMemberId&&!S.nodes[rel.activeMemberId]){
+    rel.activeMemberId=members.length?members[members.length-1]:null;
+  }
+
+  // Clean up orphaned intros that have no adjacent members
+  // (e.g., last intro with no member after it)
+  const cleanChildren=[];
+  for(let i=0;i<rel.children.length;i++){
+    const cn=S.nodes[rel.children[i]];
+    if(!cn) continue;
+    cleanChildren.push(rel.children[i]);
+  }
+  rel.children=cleanChildren;
+
   if(members.length<=1){
     // Dissolve the rel: move content of remaining member (if any) up into host
     if(members.length===1){
@@ -841,13 +877,44 @@ function _normalizeRelAfterDelete(relId){
         });
       }
     }
-    // Remove the rel from host and delete all rel children
+    // Remove the rel from host and delete all rel children (intros, motlinks, punct, empty members)
     if(host) host.children=host.children.filter(c=>c!==relId);
-    // Delete all rel subtree (intros, motlinks, punct, empty members)
     [...rel.children].forEach(cid=>{
-      if(S.nodes[cid]) { [...(S.nodes[cid].children||[])].forEach(gc=>{ delete S.nodes[gc]; }); delete S.nodes[cid]; }
+      if(S.nodes[cid]) {
+        [...(S.nodes[cid].children||[])].forEach(gc=>{ delete S.nodes[gc]; });
+        delete S.nodes[cid];
+      }
     });
     delete S.nodes[relId];
+  } else {
+    // Still viable — remove any trailing orphan intros (intro at end with no following member)
+    while(rel.children.length>0){
+      const lastId=rel.children[rel.children.length-1];
+      const lastN=S.nodes[lastId];
+      if(lastN&&lastN.kind==='intro'){
+        // Delete orphan trailing intro and its children
+        [...(lastN.children||[])].forEach(gc=>delete S.nodes[gc]);
+        delete S.nodes[lastId];
+        rel.children.pop();
+      } else break;
+    }
+    // Same for leading intros
+    while(rel.children.length>0){
+      const firstId=rel.children[0];
+      const firstN=S.nodes[firstId];
+      if(firstN&&firstN.kind==='intro'){
+        [...(firstN.children||[])].forEach(gc=>delete S.nodes[gc]);
+        delete S.nodes[firstId];
+        rel.children.shift();
+      } else break;
+    }
+    // Update relType based on remaining intros
+    const remainingIntros=rel.children.filter(cid=>S.nodes[cid]?.kind==='intro');
+    const hasCoord=remainingIntros.some(cid=>{const n=S.nodes[cid];return n&&n.introType==='Coordonnant';});
+    const hasJuxta=remainingIntros.some(cid=>{const n=S.nodes[cid];return n&&n.introType==='Juxtaposant';});
+    if(hasCoord&&hasJuxta) rel.relType='mixed';
+    else if(hasJuxta) rel.relType='juxta';
+    else if(hasCoord) rel.relType='coord';
   }
 }
 function addFG(parentId,fn,grp,depth){
@@ -870,8 +937,8 @@ function subTreeWidth(id){
   const n=S.nodes[id]; if(!n) return 1;
   // motlink and punct children are visual-only, don't count them in width
   const realChildren=n.children.filter(c=>S.nodes[c]&&S.nodes[c].kind!=='motlink'&&S.nodes[c].kind!=='punct');
-  // intro inside a rel takes fixed INTRO_W (like P-level coord)
-  if(n.kind==='intro'&&n.parentId&&S.nodes[n.parentId]?.kind==='rel') return 1.2;
+  // intro inside a rel takes fixed width to ensure clearance for motlink below
+  if(n.kind==='intro'&&n.parentId&&S.nodes[n.parentId]?.kind==='rel') return 1.5;
   if(!realChildren.length){
     // For terminal nodes, compute width in GX-units based on estimated bubble width
     const bw=_estimateBubbleW(n);
@@ -1027,6 +1094,22 @@ function applyYWithMax(id, globalMax){
   realChildren.forEach(c=>applyYWithMax(c, globalMax));
 }
 
+// ── Bottom-up re-centering pass: each non-leaf node is centered over its children ──
+// This corrects layout distortions when a local 'rel' makes a subtree wider than its parent.
+function _reCenterPass(id){
+  const n=S.nodes[id]; if(!n) return;
+  const realCh=n.children.filter(c=>S.nodes[c]&&S.nodes[c].kind!=='motlink'&&S.nodes[c].kind!=='punct');
+  // Recurse first (bottom-up)
+  realCh.forEach(c=>_reCenterPass(c));
+  // Then re-center this node over its children
+  if(n._manualPos) return;
+  if(!realCh.length) return;
+  const childXs=realCh.map(c=>S.nodes[c]?.x).filter(x=>x!=null&&x>0);
+  if(childXs.length){
+    n.x=childXs.reduce((a,b)=>a+b,0)/childXs.length;
+  }
+}
+
 function doLayout(){
   sortTreeChildrenByPhraseOrder();
   Object.values(S.nodes).forEach(n=>{ if(!n._manualPos) n.mp=false; });
@@ -1064,6 +1147,18 @@ function doLayout(){
 
     // Find global max structDepth across ALL subtrees (children of pn nodes)
     // pn nodes themselves have structDepth=0, their children start at 1
+    // First fix overlaps within each pn subtree and re-center
+    S.coordRoots.forEach(rid=>{
+      const rn=S.nodes[rid]; if(!rn||rn.kind==='intro') return;
+      _fixOverlapPass(rid);
+      _reCenterPass(rid);
+      // Re-center pn itself over children
+      if(!rn._manualPos){
+        rn.y=TOP_Y; rn._structDepth=0;
+        const xs=rn.children.filter(c=>S.nodes[c]?.kind!=='motlink').map(c=>S.nodes[c]?.x).filter(x=>x!=null);
+        if(xs.length) rn.x=xs.reduce((a,b)=>a+b,0)/xs.length;
+      }
+    });
     const globalMax=Math.max(...S.coordRoots
       .filter(id=>S.nodes[id]?.kind!=='intro')
       .map(id=>getMaxStructDepth(id)), 0);
@@ -1120,6 +1215,9 @@ function doLayout(){
       }
     }
     _fixOverlapPass(S.rootId);
+    // ── Bottom-up re-centering: ensure each parent is centered over its children ──
+    // This prevents layout distortions when a local rel makes a subtree wider.
+    _reCenterPass(S.rootId);
     applyY(S.rootId);
   }
 
@@ -1170,6 +1268,17 @@ function doLayout(){
         const offset=(adj&&adj.pos==='before')?-70:70;
         pn.x=mlX2+offset; pn.y=relBottomY;
       });
+    }
+  });
+
+  // ── Center each host fg/g over its rel's visible extent ──
+  allRelNodes.forEach(rel=>{
+    const host=S.nodes[rel.parentId];
+    if(!host||host._manualPos) return;
+    const members=rel.children.filter(cid=>S.nodes[cid]?.kind==='g');
+    const memberXs=members.map(cid=>S.nodes[cid]?.x).filter(x=>x!=null&&x>0);
+    if(memberXs.length){
+      host.x=memberXs.reduce((a,b)=>a+b,0)/memberXs.length;
     }
   });
 
@@ -1286,7 +1395,10 @@ function _getSubtreeOrigIdxs(nodeId){
   const idxs=[];
   function walk(id){
     const n=S.nodes[id]; if(!n) return;
-    if(n.kind==='m'&&n.origIdx!=null) idxs.push(n.origIdx);
+    if(n.origIdx!=null&&n.origIdx!==999999){
+      if(n.kind==='m'||n.kind==='motlink'||n.kind==='intro') idxs.push(n.origIdx);
+      if(n.kind==='punct'&&n.parentId&&S.nodes[n.parentId]?.kind==='intro') idxs.push(n.origIdx);
+    }
     (n.children||[]).forEach(walk);
   }
   walk(nodeId);
@@ -1470,6 +1582,9 @@ function _applyAutoCommaCP(){
     // Vérifier si le mot suivant dans S.words est une ponctuation virgule
     const nextW=S.words[maxIdx+1];
     if(!nextW||!nextW.isPunct||nextW.text!==',') return;
+    // Skip if this comma is already owned by a relation (juxtaposition)
+    const _ownedForComma=getOwnedTokenIdxs();
+    if(_ownedForComma.has(maxIdx+1)) return;
     // Trouver le nœud mot avec cet origIdx pour positionner la virgule à sa droite
     let lastMotNode=null;
     Object.values(S.nodes).forEach(nn=>{
@@ -1500,6 +1615,8 @@ function renderTree(animId){
   _enforceOneMotPerClass();
   renderEdges();
   renderPhraseBottom();
+  // Refresh top phrase bar to reflect owned tokens (coord/juxta markers)
+  if(typeof renderWords==='function') renderWords();
   // Auto-fit after render (use rAF so DOM has settled)
   requestAnimationFrame(()=>{
     computeAndApplyScale(true);
@@ -1599,12 +1716,15 @@ function renderNode(n,animId){
     if(n.fn) inner=`<span class="node-fn">${n.fn}${coordSuffix}</span><span class="node-grp">${n.pstype}</span>`;
     else inner=`<span class="node-sub">Sub.</span><span class="node-main">${n.pstype}</span>`;
   } else if(n.kind==='fg'){
-    // If this fg hosts a local rel, show coordination type instead of plain grp
+    // If this fg hosts a local rel, show grp with a discreet coordination suffix
     const _relChild=n.children&&n.children.map(c=>S.nodes[c]).find(ch=>ch?.kind==='rel');
-    const _grpLabel=_relChild?(_relChild.relType==='coord'?'coord.':_relChild.relType==='juxta'?'juxt.':'énum.'):n.grp;
-    inner=`<span class="node-fn">${n.fn}${coordSuffix}</span><span class="node-grp">${_grpLabel}</span>`;
+    const _relSuffix=_relChild?` <span style="font-size:.52rem;opacity:.6;font-style:italic">${_relChild.relType==='coord'?'coord.':_relChild.relType==='juxta'?'juxt.':'énum.'}</span>`:'';
+    inner=`<span class="node-fn">${n.fn}${coordSuffix}</span><span class="node-grp">${n.grp}${_relSuffix}</span>`;
   } else if(n.kind==='g'){
-    inner=`<span class="node-main">${n.grp}</span>`;
+    // Same for g nodes that host a rel
+    const _gRelChild=n.children&&n.children.map(c=>S.nodes[c]).find(ch=>ch?.kind==='rel');
+    const _gRelSuffix=_gRelChild?` <span style="font-size:.52rem;opacity:.6;font-style:italic">${_gRelChild.relType==='coord'?'coord.':_gRelChild.relType==='juxta'?'juxt.':'énum.'}</span>`:'';
+    inner=`<span class="node-main">${n.grp}${_gRelSuffix}</span>`;
   } else if(n.kind==='c'){
     const hintBulb=n._assistedHint?` <span class="assisted-hint" title="Cliquer pour l'aide" onclick="event.stopPropagation();showAssistedMsg(event,'${n.id}')">💡</span>`:'';
     const displayCls=(n.cls&&n.cls!=='?')?(n.cls==='Subordonnant'?'Subord.':n.cls):'–';
@@ -1824,21 +1944,26 @@ function renderEdges(){
     if(!n.parentId) return;
     let p=S.nodes[n.parentId]; if(!p) return;
 
+    // rel itself: invisible, skip entirely — no edge drawn TO rel
+    if(n.kind==='rel') return;
+
     // For nodes whose direct parent is a 'rel' (invisible), route edge from rel's host
+    let fromRel=false;
     if(p.kind==='rel'){
+      fromRel=true;
       const hostId=p.hostId||p.parentId;
       const host=S.nodes[hostId];
       if(host) p=host; else return;
     }
-    // rel itself: invisible, skip entirely
-    if(n.kind==='rel') return;
 
     const x1=p.x, y1=p.y+getNodeHalfH(p.id), x2=n.x, y2=n.y-getNodeHalfH(n.id);
 
     if(n.kind==='motlink'){
-      // Draw vertical line from intro down to motlink word bubble
+      // Draw vertical dashed line from intro down to motlink word bubble
+      const introP=S.nodes[n.parentId];
+      const ix=introP?introP.x:x1, iy=introP?(introP.y+getNodeHalfH(introP.id)):y1;
       const line=document.createElementNS('http://www.w3.org/2000/svg','line');
-      line.setAttribute('x1',x1);line.setAttribute('y1',y1);
+      line.setAttribute('x1',ix);line.setAttribute('y1',iy);
       line.setAttribute('x2',x2);line.setAttribute('y2',y2);
       line.setAttribute('stroke','var(--gv-b)');line.setAttribute('stroke-width','1.8');
       line.setAttribute('stroke-dasharray','4,3');
@@ -1863,6 +1988,8 @@ function renderEdges(){
       path.setAttribute('stroke','#c5bfb3');path.setAttribute('stroke-width','1.8');path.setAttribute('fill','none');
       svg.appendChild(path);
     }
+    // Draw junction dot — but NOT if this was routed through an invisible rel
+    // (to avoid floating dots at the host when children fan out from rel)
     const dotKey=Math.round(x1)+'_'+Math.round(y1);
     if(!drawnDots.has(dotKey)){
       drawnDots.add(dotKey);
@@ -1871,106 +1998,70 @@ function renderEdges(){
       svg.appendChild(dot);
     }
   });
-
-  // Punctuation nodes (kind='punct') are rendered as regular tnode elements
-  // No special SVG needed here
 }
 
 function renderPhraseBottom(){
-  // Build ordered list: placed mots sorted by x, with punctuation inserted at original positions
-  const mots=Object.values(S.nodes).filter(n=>n.kind==='m').sort((a,b)=>a.x-b.x);
   const pb=document.getElementById('phrase-bottom');
-  if(!mots.length){pb.innerHTML='<span class="pb-empty">La phrase reconstituée apparaîtra ici.</span>';return;}
+  const allMots=Object.values(S.nodes).filter(n=>n.kind==='m');
+  if(!allMots.length){pb.innerHTML='<span class="pb-empty">La phrase reconstituée apparaîtra ici.</span>';return;}
   pb.innerHTML='';
   const lbl=document.createElement('span');lbl.className='pb-label';lbl.textContent='mots placés :';
   pb.appendChild(lbl);
 
-  // ── Build ordered bottom bar ────────────────────────────────────────────────
-  // Sort everything by ORIGINAL phrase order (S.words index), not by X coord.
-
-  function getOrigIdxForMotNode(m){
-    if(m&&m.origIdx!==undefined&&m.origIdx!==null) return m.origIdx;
-    return S.words.findIndex(w=>!w.isPunct&&w.text===m?.mot);
-  }
-  function getOrigIdx(text){
-    return S.words.findIndex(w=>!w.isPunct&&w.text===text);
-  }
-
-  // Collect motlinks + their intro's adjPunct
-  const motlinks=Object.values(S.nodes).filter(n=>n.kind==='motlink');
-  // Build a map: motlinkId → {introMot, origIdx, adjPunct:{before,after}}
-  const mlInfoById={};
+  // ── Collect ownership by origIdx ──────────────────────────────────────────
+  // Map origIdx → { type:'m'|'motlink'|'punct-rel', node }
+  const ownerByIdx={};
   Object.values(S.nodes).forEach(n=>{
-    if(n.kind!=='intro') return;
-    const mlId=n.children&&n.children.find(c=>S.nodes[c]?.kind==='motlink');
-    if(!mlId) return;
-    mlInfoById[mlId]={
-      introMot:n.mot,
-      origIdx:(n.origIdx!==undefined&&n.origIdx!==null)?n.origIdx:getWordOrigIdxFromText(n.mot),
-      before:(n.adjPunct||[]).filter(a=>a.pos==='before').map(a=>a.text),
-      after:(n.adjPunct||[]).filter(a=>a.pos==='after').map(a=>a.text),
-    };
-  });
-
-  // Build combined list
-  const allItems=[
-    ...mots.map(m=>({type:'word',mot:m,origIdx:getOrigIdxForMotNode(m)})),
-    ...motlinks.map(ml=>{
-      const info=mlInfoById[ml.id]||{introMot:ml.mot,origIdx:999999,before:[],after:[]};
-      // Use origIdx from mlInfoById if available, else text lookup
-      const mlOrigIdx=info.origIdx!==undefined?info.origIdx:getWordOrigIdxFromText(info.introMot);
-      return {type:'motlink',mot:ml,info,origIdx:mlOrigIdx};
-    })
-  ].sort((a,b)=>{
-    const ai=a.origIdx>=0?a.origIdx:99999;
-    const bi=b.origIdx>=0?b.origIdx:99999;
-    if(ai!==bi) return ai-bi;
-    return (a.mot.x||0)-(b.mot.x||0);
-  });
-
-  // Collect all punctuation already claimed by motlinks — use origIdx, not text
-  const claimedPunctIdx=new Set();
-  Object.values(S.nodes).forEach(n=>{
-    if(n.kind==='punct'&&n.parentId){
+    const idx=n.origIdx;
+    if(idx===undefined||idx===null||idx<0||idx===999999) return;
+    if(n.kind==='m') ownerByIdx[idx]={type:'m',node:n};
+    else if(n.kind==='motlink') ownerByIdx[idx]={type:'motlink',node:n};
+    else if(n.kind==='intro'&&idx>=0) { if(!ownerByIdx[idx]) ownerByIdx[idx]={type:'motlink-intro',node:n}; }
+    else if(n.kind==='punct'&&n.parentId){
       const par=S.nodes[n.parentId];
-      if(par&&par.kind==='intro'&&n.origIdx!==undefined&&n.origIdx!==null)
-        claimedPunctIdx.add(n.origIdx);
+      if(par&&par.kind==='intro') ownerByIdx[idx]={type:'punct-rel',node:n};
     }
-    if(n.kind==='intro'&&n.adjPunct){
-      n.adjPunct.forEach(ap=>{
-        const apIdx=ap.wIdx!==undefined?ap.wIdx:S.words.findIndex(w=>w.text===ap.text&&w.isPunct);
-        if(apIdx>=0) claimedPunctIdx.add(apIdx);
-      });
+  });
+  // Also claim adjPunct indices from intro nodes
+  Object.values(S.nodes).forEach(n=>{
+    if(n.kind!=='intro'||!n.adjPunct) return;
+    n.adjPunct.forEach(ap=>{
+      const apIdx=ap.wIdx!==undefined?ap.wIdx:S.words.findIndex(w=>w.text===ap.text&&w.isPunct);
+      if(apIdx>=0&&!ownerByIdx[apIdx]) ownerByIdx[apIdx]={type:'punct-rel',node:n};
+    });
+  });
+
+  // ── Walk S.words in order, emit elements ──────────────────────────────────
+  const rendered=[];
+  S.words.forEach((w,wi)=>{
+    const idx=w.idx!==undefined?w.idx:wi;
+    const owner=ownerByIdx[idx];
+    if(!owner){
+      // Free punctuation (not claimed by any relation) — show as normal punct
+      if(w.isPunct) rendered.push({type:'punct',text:w.text,idx});
+      // Free non-punct word not in tree — skip (not placed yet)
+      return;
+    }
+    if(owner.type==='m'){
+      rendered.push({type:'word',mot:owner.node,idx});
+    } else if(owner.type==='motlink'){
+      rendered.push({type:'motlink-word',mot:owner.node,idx});
+    } else if(owner.type==='motlink-intro'){
+      // intro itself claimed this index — show as motlink-word (the intro's mot)
+      rendered.push({type:'motlink-word',mot:owner.node,idx});
+    } else if(owner.type==='punct-rel'){
+      // Punct claimed by relation — show as locked
+      rendered.push({type:'locked-punct',text:w.text,idx});
     }
   });
 
-  // Build final sequence with punctuation
-  const withPunct=[];
-  allItems.forEach(item=>{
-    if(item.type==='motlink'){
-      item.info.before.forEach(t=>withPunct.push({type:'locked-punct',text:t}));
-      withPunct.push({type:'motlink-word',mot:item.mot});
-      item.info.after.forEach(t=>withPunct.push({type:'locked-punct',text:t}));
-    } else {
-      withPunct.push({type:'word',mot:item.mot});
-      // Insert following punctuation if not already claimed by a relation intro
-      const wi=getOrigIdxForMotNode(item.mot);
-      if(wi>=0&&S.words[wi+1]&&S.words[wi+1].isPunct){
-        const ptIdx=wi+1;
-        if(!claimedPunctIdx.has(ptIdx)){
-          withPunct.push({type:'punct',text:S.words[wi+1].text});
-        }
-      }
-    }
-  });
-
-  withPunct.forEach(item=>{
+  // ── Render DOM elements ───────────────────────────────────────────────────
+  rendered.forEach(item=>{
     if(item.type==='punct'){
       const pel=document.createElement('span');
       pel.className='pb-punct';pel.textContent=item.text;
       pb.appendChild(pel);
     } else if(item.type==='locked-punct'){
-      // Locked, non-editable punctuation from conjunction/juxtaposition
       const pel=document.createElement('span');
       pel.className='pb-punct';
       pel.style.cssText='color:var(--t3);opacity:.7;cursor:default;user-select:none;';
@@ -1978,14 +2069,13 @@ function renderPhraseBottom(){
       pel.textContent=item.text;
       pb.appendChild(pel);
     } else if(item.type==='motlink-word'){
-      // Motlink word shown in phrase-bottom (read-only)
       const el=document.createElement('span');
       el.className='pb-word';
       el.style.cssText='opacity:.55;cursor:default;font-style:italic;';
       el.title='Coordonnant/Juxtaposant (non déplaçable)';
-      el.textContent=item.mot.mot;
+      el.textContent=item.mot.mot||item.mot.text||'?';
       pb.appendChild(el);
-    } else {
+    } else if(item.type==='word'){
       const m=item.mot;
       const el=document.createElement('span');
       el.className='pb-word'+(S.pbSel.has(m.id)?' pb-sel':'');
@@ -2046,6 +2136,21 @@ function getOwnedTokenIdxs(){
   });
   return used;
 }
+// Returns Set of origIdx consumed ONLY as relation markers (intro, motlink, rel-punct).
+// Does NOT include ordinary 'm' nodes. Used by startCoordination local to allow
+// an 'm' word to be proposed as a coordinator even though it's already placed.
+function _getRelationMarkerIdxs(){
+  const used=new Set();
+  Object.values(S.nodes).forEach(n=>{
+    if(n.origIdx===undefined||n.origIdx===null||n.origIdx===999999) return;
+    if(n.kind==='intro'||n.kind==='motlink') used.add(n.origIdx);
+    if(n.kind==='punct'&&n.parentId){
+      const par=S.nodes[n.parentId];
+      if(par&&par.kind==='intro') used.add(n.origIdx);
+    }
+  });
+  return used;
+}
 function getWordsInTree(){
   // Returns a Set of mot strings already placed in the tree (includes coord/juxta intro words)
   // Kept for backward compatibility; token-based checks use getOwnedTokenIdxs()
@@ -2073,10 +2178,9 @@ function dropWord(nodeId){
     wordArr=wordSpecs.map(w=>w.text); txt=wordArr.join(' ');
   }
   if(!txt) return;
-  // Filter out words already in tree (by text AND by origIdx for rel markers)
-  const inTree=getWordsInTree();
+  // Filter out words already in tree — use origIdx ONLY to handle duplicate words correctly
   const ownedIdx=getOwnedTokenIdxs();
-  wordSpecs=wordSpecs.filter(ws=>!inTree.has(ws.text)&&!ownedIdx.has(ws.origIdx));
+  wordSpecs=wordSpecs.filter(ws=>!ownedIdx.has(ws.origIdx));
   wordArr=wordSpecs.map(w=>w.text);
   if(!wordArr.length){setHL('⚠️ Ces mots sont déjà placés dans l\'arbre.');clearSel();return;}
   txt=wordArr.join(' ');
@@ -2571,27 +2675,70 @@ function menuPN(ev,n){menuP(ev,n);}  // pn delegates to menuP
 
 function startCoordination(n,type,cx,cy){
   const label=type==='coord'?'Coordonnant':'Juxtaposant';
-  // For juxtaposition: only punctuation tokens; for coordination: only real words
-  const wordOptions=type==='juxta'
-    ? S.words.filter(w=>w.isPunct)
-    : S.words.filter(w=>!w.isPunct);
+  const ownedIdx=getOwnedTokenIdxs();
+  // Fine-grained: only relation markers (intro/motlink/punct-rel), NOT ordinary m nodes
+  const relMarkerIdx=_getRelationMarkerIdxs();
+
+  // ── Valid coordination markers (grammatically recognized coordonnants) ──
+  const COORD_MARKERS=new Set(['et','ou','ni','mais','car','or','donc','puis','ensuite','cependant','pourtant','toutefois','néanmoins']);
+
+  // ── Determine candidate tokens ──────────────────────────────────────
+  let wordOptions;
+  if(n.kind==='fg'||n.kind==='g'){
+    // LOCAL coordination: strict subtree filtering
+    const subtreeIdxs=_getSubtreeOrigIdxs(n.id);
+    if(subtreeIdxs.length<1){
+      wordOptions=[];
+    } else {
+      const spanMin=Math.min(...subtreeIdxs);
+      const spanMax=Math.max(...subtreeIdxs);
+
+      if(type==='juxta'){
+        // Juxtaposition: punctuation tokens strictly within [spanMin..spanMax]
+        // Exclude only tokens already used as relation markers, NOT ordinary punct
+        wordOptions=S.words.filter((w,wi)=>{
+          const idx=w.idx!==undefined?w.idx:wi;
+          return w.isPunct && idx>=spanMin && idx<=spanMax && !relMarkerIdx.has(idx);
+        });
+      } else {
+        // Coordination: only valid coordinator markers within [spanMin..spanMax]
+        // An 'm' node in the group is eligible — we only exclude relation markers
+        wordOptions=S.words.filter((w,wi)=>{
+          const idx=w.idx!==undefined?w.idx:wi;
+          if(w.isPunct) return false;
+          if(idx<spanMin||idx>spanMax) return false;
+          if(relMarkerIdx.has(idx)) return false; // already a motlink/intro elsewhere
+          return COORD_MARKERS.has(w.text.toLowerCase());
+        });
+      }
+    }
+  } else {
+    // P-level coordination: use all S.words with full ownedIdx filter (existing behavior)
+    if(type==='juxta'){
+      wordOptions=S.words.filter((w,wi)=>w.isPunct&&!ownedIdx.has(w.idx!==undefined?w.idx:wi));
+    } else {
+      wordOptions=S.words.filter((w,wi)=>!w.isPunct&&!ownedIdx.has(w.idx!==undefined?w.idx:wi));
+    }
+  }
+
   const items=wordOptions.map(w=>mkItemColor(w.text,'white','var(--mot-b)',()=>{
     snap('coord');
-    // Detect adjacent punctuation around this word's index
     const wIdx=S.words.indexOf(w);
     const adjPunct=[];
-    if(wIdx>0&&S.words[wIdx-1]&&S.words[wIdx-1].isPunct) adjPunct.push({pos:'before',text:S.words[wIdx-1].text,wIdx:wIdx-1});
-    if(wIdx<S.words.length-1&&S.words[wIdx+1]&&S.words[wIdx+1].isPunct) adjPunct.push({pos:'after',text:S.words[wIdx+1].text,wIdx:wIdx+1});
-    applyCoordination(n,label,w.text,adjPunct);
+    // Adjacent punctuation: exclude only relation markers, not free punct in local context
+    const adjFilter=(n.kind==='fg'||n.kind==='g')?relMarkerIdx:ownedIdx;
+    if(wIdx>0&&S.words[wIdx-1]&&S.words[wIdx-1].isPunct&&!adjFilter.has(wIdx-1)) adjPunct.push({pos:'before',text:S.words[wIdx-1].text,wIdx:wIdx-1});
+    if(wIdx<S.words.length-1&&S.words[wIdx+1]&&S.words[wIdx+1].isPunct&&!adjFilter.has(wIdx+1)) adjPunct.push({pos:'after',text:S.words[wIdx+1].text,wIdx:wIdx+1});
+    applyCoordination(n,label,w.text,adjPunct,wIdx);
   }));
   if(!items.length){
-    if(type==='juxta') items.push(mkItemColor('(Aucune ponctuation dans la phrase)','var(--s2)','var(--bd)',()=>{}));
-    else items.push(mkItemColor("(Confirmez une phrase d'abord)",'var(--s2)','var(--bd)',()=>{}));
+    if(type==='juxta') items.push(mkItemColor('(Aucune ponctuation dans ce groupe)','var(--s2)','var(--bd)',()=>{}));
+    else items.push(mkItemColor("(Aucun coordonnant trouvé dans ce groupe)",'var(--s2)','var(--bd)',()=>{}));
   }
   buildCtxAt('Choisir le '+label.toLowerCase(),items,cx+12,cy+12,true);
 }
 
-function applyCoordination(n,label,linkWord,adjPunct){
+function applyCoordination(n,label,linkWord,adjPunct,linkWIdx){
   adjPunct=adjPunct||[];
   if(n.kind==='p'&&!n.coordDone){
     snap('coord');
@@ -2600,6 +2747,7 @@ function applyCoordination(n,label,linkWord,adjPunct){
     const p1Id=n.id;
 
     // Fix 13: remove standalone 'm' node for the coordonnant word to prevent duplicates
+    const _pLinkOrigIdx=(linkWIdx!==undefined&&linkWIdx>=0)?linkWIdx:S.words.findIndex(w=>w.text===linkWord);
     Object.keys(S.nodes).forEach(nid=>{
       const mn=S.nodes[nid];
       if(mn&&mn.kind==='m'&&mn.mot===linkWord&&(mn.parentId===null||!S.nodes[mn.parentId]))
@@ -2607,17 +2755,18 @@ function applyCoordination(n,label,linkWord,adjPunct){
     });
 
     const introId=mkId();
-    S.nodes[introId]={id:introId,kind:'intro',introType:label,mot:linkWord,adjPunct:adjPunct,
+    S.nodes[introId]={id:introId,kind:'intro',introType:label,mot:linkWord,origIdx:_pLinkOrigIdx,adjPunct:adjPunct,
       parentId:null,children:[],depth:0,x:0,y:0,mp:false,_manualPos:false,isCoord:true};
     // Create a motlink child — shown at the bottom word row
     const mlId=mkId();
-    S.nodes[mlId]={id:mlId,kind:'motlink',mot:linkWord,
+    S.nodes[mlId]={id:mlId,kind:'motlink',mot:linkWord,origIdx:_pLinkOrigIdx,
       parentId:introId,children:[],depth:1,x:0,y:0,mp:false,_manualPos:false};
     S.nodes[introId].children=[mlId];
     // Create punct nodes for adjPunct
     adjPunct.forEach(ap=>{
       const pId=mkId();
-      S.nodes[pId]={id:pId,kind:'punct',mot:ap.text,pos:ap.pos,
+      const _apIdx=ap.wIdx!==undefined?ap.wIdx:S.words.findIndex(w=>w.text===ap.text&&w.isPunct);
+      S.nodes[pId]={id:pId,kind:'punct',mot:ap.text,pos:ap.pos,origIdx:_apIdx,
         parentId:introId,children:[],depth:1,x:0,y:0,mp:false,_manualPos:false};
       S.nodes[introId].children.push(pId);
     });
@@ -2634,6 +2783,7 @@ function applyCoordination(n,label,linkWord,adjPunct){
 
   } else if(n.kind==='pn' && S.coordRoots){
     snap('coord');
+    const _pnLinkOrigIdx=(linkWIdx!==undefined&&linkWIdx>=0)?linkWIdx:S.words.findIndex(w=>w.text===linkWord);
     // Fix 13: remove standalone 'm' node for the coordonnant word to prevent duplicates
     Object.keys(S.nodes).forEach(nid=>{
       const mn=S.nodes[nid];
@@ -2642,15 +2792,16 @@ function applyCoordination(n,label,linkWord,adjPunct){
     });
     const lastLabel='P'+(S.coordRoots.filter(id=>S.nodes[id]?.kind==='pn').length+1);
     const introId2=mkId();
-    S.nodes[introId2]={id:introId2,kind:'intro',introType:label,mot:linkWord,adjPunct:adjPunct,
+    S.nodes[introId2]={id:introId2,kind:'intro',introType:label,mot:linkWord,origIdx:_pnLinkOrigIdx,adjPunct:adjPunct,
       parentId:null,children:[],depth:0,x:0,y:0,mp:false,_manualPos:false,isCoord:true};
     const mlId2=mkId();
-    S.nodes[mlId2]={id:mlId2,kind:'motlink',mot:linkWord,
+    S.nodes[mlId2]={id:mlId2,kind:'motlink',mot:linkWord,origIdx:_pnLinkOrigIdx,
       parentId:introId2,children:[],depth:1,x:0,y:0,mp:false,_manualPos:false};
     S.nodes[introId2].children=[mlId2];
     adjPunct.forEach(ap=>{
       const pId2=mkId();
-      S.nodes[pId2]={id:pId2,kind:'punct',mot:ap.text,pos:ap.pos,
+      const _apIdx2=ap.wIdx!==undefined?ap.wIdx:S.words.findIndex(w=>w.text===ap.text&&w.isPunct);
+      S.nodes[pId2]={id:pId2,kind:'punct',mot:ap.text,pos:ap.pos,origIdx:_apIdx2,
         parentId:introId2,children:[],depth:1,x:0,y:0,mp:false,_manualPos:false};
       S.nodes[introId2].children.push(pId2);
     });
@@ -2669,13 +2820,65 @@ function applyCoordination(n,label,linkWord,adjPunct){
     const hostNode=S.nodes[n.id]; if(!hostNode) return;
     const relType=label==='Coordonnant'?'coord':'juxta';
     const memberGrp=hostNode.grp||'GN';
-    const linkOrigIdx=S.words.findIndex(w=>w.text===linkWord&&!w.isPunct);
+    const linkOrigIdx=(linkWIdx!==undefined&&linkWIdx>=0)?linkWIdx:S.words.findIndex(w=>w.text===linkWord);
 
-    // Remove standalone 'm' for linkWord to prevent duplicates (same as P-level fix)
+    // Remove the chosen marker token from its current location in the tree.
+    // It may be a standalone 'm' (no parent) OR an 'm' inside this very subtree.
+    // We must find and remove it by origIdx to prevent duplicates.
+    function _removeMotByOrigIdx(searchRoot, targetOrigIdx){
+      // Walk the subtree rooted at searchRoot, find m with this origIdx, remove it + empty parent c
+      const toDelete=[];
+      function walk(nid){
+        const nn=S.nodes[nid]; if(!nn) return;
+        if(nn.kind==='m'&&nn.origIdx===targetOrigIdx){ toDelete.push(nid); return; }
+        (nn.children||[]).forEach(walk);
+      }
+      walk(searchRoot);
+      toDelete.forEach(mid=>{
+        const mn=S.nodes[mid]; if(!mn) return;
+        const pid=mn.parentId;
+        if(pid&&S.nodes[pid]){
+          S.nodes[pid].children=S.nodes[pid].children.filter(c=>c!==mid);
+          // If parent is a 'c' with no remaining children, remove it too
+          if(S.nodes[pid].kind==='c'&&S.nodes[pid].children.length===0){
+            const gpid=S.nodes[pid].parentId;
+            if(gpid&&S.nodes[gpid]){
+              S.nodes[gpid].children=S.nodes[gpid].children.filter(c=>c!==pid);
+            }
+            delete S.nodes[pid];
+          }
+        }
+        delete S.nodes[mid];
+      });
+    }
+    // Remove from the host subtree
+    _removeMotByOrigIdx(n.id, linkOrigIdx);
+    // Also remove standalone 'm' nodes (no parent or parent doesn't exist)
     Object.keys(S.nodes).forEach(nid=>{
       const mn=S.nodes[nid];
-      if(mn&&mn.kind==='m'&&mn.mot===linkWord&&(mn.parentId===null||!S.nodes[mn.parentId]))
+      if(mn&&mn.kind==='m'&&mn.origIdx===linkOrigIdx&&(mn.parentId===null||!S.nodes[mn.parentId]))
         delete S.nodes[nid];
+    });
+    // Also remove free punct nodes that match this token index (juxta case)
+    Object.keys(S.nodes).forEach(nid=>{
+      const mn=S.nodes[nid];
+      if(mn&&mn.kind==='punct'&&mn.origIdx===linkOrigIdx&&(mn.parentId===null||!S.nodes[mn.parentId]))
+        delete S.nodes[nid];
+      if(mn&&nid===('_pchar_'+linkOrigIdx))
+        delete S.nodes[nid];
+    });
+    // Remove adjPunct tokens from tree too (same logic)
+    adjPunct.forEach(ap=>{
+      const apIdx=ap.wIdx!==undefined?ap.wIdx:-1;
+      if(apIdx<0) return;
+      _removeMotByOrigIdx(n.id, apIdx);
+      Object.keys(S.nodes).forEach(nid=>{
+        const mn=S.nodes[nid];
+        if(mn&&mn.kind==='punct'&&mn.origIdx===apIdx&&(mn.parentId===null||!S.nodes[mn.parentId]))
+          delete S.nodes[nid];
+        if(mn&&nid===('_pchar_'+apIdx))
+          delete S.nodes[nid];
+      });
     });
 
     // Find existing rel child of this host
@@ -2685,18 +2888,77 @@ function applyCoordination(n,label,linkWord,adjPunct){
       // ── Cas A : pas encore de rel — créer toute la structure ──────────────
       const relId=mkId();
 
-      // Collect real structural children of host (not motlink/punct) to move into first member
+      // Collect real structural children of host (not motlink/punct)
       const realKids=hostNode.children.filter(cid=>{
         const ch=S.nodes[cid]; if(!ch) return false;
         return ch.kind!=='motlink'&&ch.kind!=='punct';
       });
 
-      // Create first member (g) with existing real children inside
+      // ── Redistribute children around the marker (linkOrigIdx) ──
+      // Helper: compute min/max origIdx of a subtree
+      function _subtreeRange(nid){
+        const idxs=_getSubtreeOrigIdxs(nid);
+        if(!idxs.length) return {min:Infinity,max:-Infinity};
+        return {min:Math.min(...idxs),max:Math.max(...idxs)};
+      }
+      // Partition realKids into leftKids and rightKids
+      const leftKids=[], rightKids=[];
+      function partitionChild(cid){
+        const rng=_subtreeRange(cid);
+        if(rng.min===Infinity) return; // empty node, skip
+        if(rng.max<linkOrigIdx){
+          leftKids.push(cid);
+        } else if(rng.min>linkOrigIdx){
+          rightKids.push(cid);
+        } else {
+          // Straddles the marker — descend into children and split them
+          const straddleNode=S.nodes[cid]; if(!straddleNode) return;
+          const subChildren=[...(straddleNode.children||[])];
+          const keptInOriginal=[];
+          subChildren.forEach(subCid=>{
+            const subN=S.nodes[subCid]; if(!subN) return;
+            // Skip visual-only nodes
+            if(subN.kind==='motlink'||subN.kind==='punct'){keptInOriginal.push(subCid);return;}
+            const subRng=_subtreeRange(subCid);
+            if(subRng.min===Infinity){keptInOriginal.push(subCid);return;}
+            if(subRng.max<linkOrigIdx){
+              // Entirely before marker → detach and move to left
+              subN.parentId=null;
+              leftKids.push(subCid);
+            } else if(subRng.min>linkOrigIdx){
+              // Entirely after marker → detach and move to right
+              subN.parentId=null;
+              rightKids.push(subCid);
+            } else {
+              // Still straddles at this level — keep in left side (conservative)
+              keptInOriginal.push(subCid);
+            }
+          });
+          // Update the original straddling node's children
+          straddleNode.children=keptInOriginal;
+          // If the original node still has structural content, keep it in left
+          const hasRealContent=keptInOriginal.some(c=>{
+            const cn=S.nodes[c];
+            return cn&&cn.kind!=='motlink'&&cn.kind!=='punct';
+          });
+          if(hasRealContent){
+            leftKids.push(cid);
+          } else {
+            // Container is now empty — clean up visual nodes and delete
+            keptInOriginal.forEach(c=>{
+              if(S.nodes[c]) delete S.nodes[c];
+            });
+            delete S.nodes[cid];
+          }
+        }
+      }
+      realKids.forEach(cid=>partitionChild(cid));
+
+      // Create first member (g) with left-side children
       const m1Id=mkId();
       S.nodes[m1Id]={id:m1Id,kind:'g',grp:memberGrp,grpCls:GRP_CLS[memberGrp]||GRP_CLS['default'],
         parentId:relId,children:[],depth:hostNode.depth+2,x:0,y:0,mp:false,_manualPos:false};
-      // Move existing real children into member 1
-      realKids.forEach(cid=>{
+      leftKids.forEach(cid=>{
         const ch=S.nodes[cid]; if(!ch) return;
         ch.parentId=m1Id;
         S.nodes[m1Id].children.push(cid);
@@ -2720,26 +2982,35 @@ function applyCoordination(n,label,linkWord,adjPunct){
         parentId:relId,children:[mlId,...punctIds],
         depth:hostNode.depth+3,x:0,y:0,mp:false,_manualPos:false};
 
-      // Create second member (empty, ready to receive words)
+      // Create second member (g) with right-side children
       const m2Id=mkId();
       S.nodes[m2Id]={id:m2Id,kind:'g',grp:memberGrp,grpCls:GRP_CLS[memberGrp]||GRP_CLS['default'],
         parentId:relId,children:[],depth:hostNode.depth+2,x:0,y:0,mp:false,_manualPos:false};
+      rightKids.forEach(cid=>{
+        const ch=S.nodes[cid]; if(!ch) return;
+        ch.parentId=m2Id;
+        S.nodes[m2Id].children.push(cid);
+      });
 
       // Create the rel node
       S.nodes[relId]={id:relId,kind:'rel',relType,hostId:n.id,memberGrp,
-        activeMemberId:m2Id,
+        activeMemberId:rightKids.length?m2Id:m2Id, // m2 is always active for further edits
         parentId:n.id,children:[m1Id,introId,m2Id],
         depth:hostNode.depth+1,x:0,y:0,mp:false,_manualPos:false};
 
-      // Replace host's children with [rel] only (visual nodes stay separate)
-      hostNode.children=hostNode.children.filter(cid=>{
-        const ch=S.nodes[cid]; if(!ch) return false;
-        return ch.kind==='motlink'||ch.kind==='punct';
+      // Replace host's children with [rel] only — clean up any stray motlink/punct
+      hostNode.children.forEach(cid=>{
+        if(cid===relId) return;
+        const ch=S.nodes[cid]; if(!ch) return;
+        if(ch.kind==='motlink'||ch.kind==='punct'){
+          [...(ch.children||[])].forEach(gc=>delete S.nodes[gc]);
+          delete S.nodes[cid];
+        }
       });
-      hostNode.children.unshift(relId);
+      hostNode.children=[relId];
 
-      renderTree(m2Id);
-      setHL(label+' « '+linkWord+' » — groupe 1 à gauche, groupe 2 à droite.');
+      renderTree(rightKids.length?null:m2Id);
+      setHL(label+' « '+linkWord+' » — contenu réparti automatiquement.');
 
     } else {
       // ── Cas B : rel existe déjà — ajouter intro + membre ──────────────────
@@ -2786,12 +3057,16 @@ function applyCoordination(n,label,linkWord,adjPunct){
 // ── fg ──
 function menuFG(ev,n){
   const cx=ev.clientX+8,cy=ev.clientY+8;
+  // Resolve target for add operations (redirect through rel if present)
+  const _addTargetId=_resolveTargetForAdd(n.id);
+  const _addTarget=S.nodes[_addTargetId]||n;
+  const _addDepth=_addTarget.depth||n.depth;
   const items=[
     mkItemColor('🔁 Changer la fonction','var(--fn-o-bg)','var(--fn-o-b)',()=>showChangeFnMenu(n,cx,cy)),
     mkItemColor('🔄 Changer le groupe →','var(--gn-bg)','var(--gn-b)',()=>showChangeGrpMenu(n,cx,cy)),
     null,
-    mkItem('+ Classe de mot','cls',()=>showClassMenu(cx,cy,n.id,n.depth+1)),
-    mkItem('+ Sous-groupe','grp',()=>showSubGrpMenu(cx,cy,n)),
+    mkItem('+ Classe de mot','cls',()=>showClassMenu(cx,cy,_addTargetId,_addDepth+1)),
+    mkItem('+ Sous-groupe','grp',()=>showSubGrpMenu(cx,cy,_addTarget)),
     null,
     mkItem('+ Coordination','fn-o',()=>startCoordination(n,'coord',cx,cy)),
     mkItem('+ Juxtaposition','fn-o',()=>startCoordination(n,'juxta',cx,cy)),
@@ -2829,9 +3104,12 @@ function showChangeGrpMenu(n,cx,cy){
 // ── G ──
 function menuG(ev,n){
   const cx=ev.clientX+8,cy=ev.clientY+8;
+  const _addTargetId=_resolveTargetForAdd(n.id);
+  const _addTarget=S.nodes[_addTargetId]||n;
+  const _addDepth=_addTarget.depth||n.depth;
   buildCtxAt('Ajouter dans '+n.grp,[
-    mkItem('+ Classe de mot','cls',()=>showClassMenu(cx,cy,n.id,n.depth+1)),
-    mkItem('+ Sous-groupe','grp',()=>showSubGrpMenu(cx,cy,n)),
+    mkItem('+ Classe de mot','cls',()=>showClassMenu(cx,cy,_addTargetId,_addDepth+1)),
+    mkItem('+ Sous-groupe','grp',()=>showSubGrpMenu(cx,cy,_addTarget)),
     null,
     mkItem('+ Coordination','fn-o',()=>startCoordination(n,'coord',cx,cy)),
     mkItem('+ Juxtaposition','fn-o',()=>startCoordination(n,'juxta',cx,cy)),
@@ -2881,35 +3159,49 @@ function menuIntro(ev,n){
 // ── C ──
 function menuC(ev,n){
   const cx=ev.clientX+8,cy=ev.clientY+8;
-  // Construire la liste des classes selon le groupe parent direct du nœud 'c'
-  let clsList=[...ALL_CLASSES];
+  // Extra classes for subordinate contexts
+  const extras=[];
   const directPsubType=_getNearestDirectPsubType(n.id);
   if(directPsubType==='Psub rel.'){
-    if(!clsList.includes('Subordonnant')) clsList.push('Subordonnant');
-    if(!clsList.includes('Pron. relatif')) clsList.push('Pron. relatif');
+    extras.push({lbl:'Subordonnant',val:'Subordonnant'},{lbl:'Pron. relatif',val:'Pron. relatif'});
   } else if(directPsubType==='Psub compl.'||directPsubType==='Psub. Compl. de P'){
-    if(!clsList.includes('Subordonnant')) clsList.push('Subordonnant');
+    extras.push({lbl:'Subordonnant',val:'Subordonnant'});
   }
-  // Fix 11: render as 2-column grid instead of long vertical list
+  // Render as 2-column grid: standard 5x2 + extras
   const ctx=document.getElementById('ctx');
   const title='Changer la classe'+(n.cls!=='?'?' (actuel: '+n.cls+')':'');
   ctxActs=[];
   let h=`<div class="ctx-title">${title}</div>`;
-  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 4px;padding:2px">';
-  clsList.forEach((c,i)=>{
-    const isActive=(n.cls===c);
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 6px;padding:2px">';
+  function addClassItem(item){
+    const isActive=(n.cls===item.val);
+    const actIdx=ctxActs.length;
     ctxActs.push(()=>{
-      snap('chg'); n.cls=c;
+      snap('chg'); n.cls=item.val;
       const motChild=n.children.map(id=>S.nodes[id]).find(ch=>ch?.kind==='m');
       if(motChild){
-        const wi=S.words.findIndex(w=>w.text===motChild.mot);
-        if(wi>=0){S.words[wi].cls=c;renderClasses();}
+        const wi=(motChild.origIdx!=null&&motChild.origIdx!==999999)?motChild.origIdx:S.words.findIndex(w=>w.text===motChild.mot);
+        if(wi>=0){S.words[wi].cls=item.val;renderClasses();}
       }
-      if(c==='Conj.'||c==='Interj.'){ promoteConjNode(n); } else { n.isConj=false; }
-      renderTree();setHL('Classe changée en '+c+'.');
+      if(item.val==='Conj.'||item.val==='Interj.'){ promoteConjNode(n); } else { n.isConj=false; }
+      renderTree();setHL('Classe changée en '+item.lbl+'.');
     });
-    h+=`<div class="ctx-item${isActive?' ctx-item-active':''}" onclick="runCtx(${i})" style="${isActive?'background:var(--abg);color:var(--ac);font-weight:700;':''}"><div class="ctx-dot" style="background:var(--cls-bg);border-color:var(--cls-b)"></div>${c}${isActive?' ✓':''}</div>`;
-  });
+    h+=`<div class="ctx-item${isActive?' ctx-item-active':''}" onclick="runCtx(${actIdx})" style="${isActive?'background:var(--abg);color:var(--ac);font-weight:700;':''}"><div class="ctx-dot" style="background:var(--cls-bg);border-color:var(--cls-b)"></div>${item.lbl}${isActive?' ✓':''}</div>`;
+  }
+  for(let row=0;row<5;row++){
+    addClassItem(CLASS_MENU_LEFT[row]);
+    addClassItem(CLASS_MENU_RIGHT[row]);
+  }
+  // Extras for Psub — span full width
+  if(extras.length){
+    extras.forEach(ex=>{
+      addClassItem(ex);
+      // Add empty cell to keep grid alignment if odd number of extras
+    });
+    if(extras.length%2===1){
+      h+='<div></div>'; // empty cell for grid alignment
+    }
+  }
   h+='</div>';
   ctx.innerHTML=h; ctx.classList.add('open');
   ctx.style.left=cx+'px'; ctx.style.top=cy+'px';
@@ -2983,18 +3275,22 @@ function showClassMenu(cx,cy,parentId,depth){
   // No class choice — create with cls='?', user picks class later via class bubble
   const items=[];
   if(S.selected.size){
-    const txt=[...S.selected].sort((a,b)=>a-b).map(i=>S.words[i]?.text).filter(Boolean).join(' ');
+    const idxs=[...S.selected].sort((a,b)=>a-b);
+    const txt=idxs.map(i=>S.words[i]?.text).filter(Boolean).join(' ');
     items.push(mkItemColor('✓ Sélection : "'+txt+'"','#fef9c3','#fbbf24',()=>{
-      snap('add');const cid=mkNode('c',{cls:'?'},parentId,depth);mkNode('m',{mot:txt},cid,depth+1);
-      renderTree(cid);setHL('Ajouté.');clearSel();
+      snap('add');
+      const ownedIdx=getOwnedTokenIdxs();
+      const specs=idxs.map(i=>mkWordSpec(S.words[i]?.text,S.words[i]?.idx??i)).filter(w=>w.text&&!ownedIdx.has(w.origIdx));
+      specs.forEach(w=>{const cid=mkNode('c',{cls:'?'},parentId,depth);mkNode('m',{mot:w.text,origIdx:w.origIdx},cid,depth+1);});
+      renderTree(parentId);setHL('Ajouté.');clearSel();
     }));
     items.push(null);
   }
-  const inTree=getWordsInTree();
-  S.words.forEach(w=>{
-    if(w.isPunct||inTree.has(w.text)) return;
+  const ownedIdx=getOwnedTokenIdxs();
+  S.words.forEach((w,wi)=>{
+    if(w.isPunct||ownedIdx.has(w.idx!==undefined?w.idx:wi)) return;
     items.push(mkItemColor(w.text,'white','var(--mot-b)',()=>{
-      snap('add');const cid=mkNode('c',{cls:'?'},parentId,depth);mkNode('m',{mot:w.text,origIdx:w.idx},cid,depth+1);
+      snap('add');const cid=mkNode('c',{cls:'?'},parentId,depth);mkNode('m',{mot:w.text,origIdx:w.idx!==undefined?w.idx:wi},cid,depth+1);
       renderTree(cid);setHL('"'+w.text+'" ajouté.');clearSel();
     }));
   });
@@ -3005,17 +3301,25 @@ function showClassMenu(cx,cy,parentId,depth){
 function showWordPickForCls(cx,cy,parentId,depth,className){
   const items=[];
   if(S.selected.size){
-    const txt=[...S.selected].sort((a,b)=>a-b).map(i=>S.words[i]?.text).filter(Boolean).join(' ');
+    const idxs=[...S.selected].sort((a,b)=>a-b);
+    const txt=idxs.map(i=>S.words[i]?.text).filter(Boolean).join(' ');
     items.push(mkItemColor('✓ Sélection : "'+txt+'"','#fef9c3','#fbbf24',()=>{
-      snap('add');const cid=mkNode('c',{cls:className},parentId,depth);mkNode('m',{mot:txt},cid,depth+1);
-      renderTree(cid);setHL('Ajouté.');clearSel();
+      snap('add');
+      const ownedIdx=getOwnedTokenIdxs();
+      const specs=idxs.map(i=>mkWordSpec(S.words[i]?.text,S.words[i]?.idx??i)).filter(w=>w.text&&!ownedIdx.has(w.origIdx));
+      specs.forEach(w=>{const cid=mkNode('c',{cls:className},parentId,depth);mkNode('m',{mot:w.text,origIdx:w.origIdx},cid,depth+1);});
+      renderTree(parentId);setHL('Ajouté.');clearSel();
     }));
     items.push(null);
   }
-  S.words.forEach(w=>items.push(mkItemColor(w.text,'white','var(--mot-b)',()=>{
-    snap('add');const cid=mkNode('c',{cls:className},parentId,depth);mkNode('m',{mot:w.text},cid,depth+1);
-    renderTree(cid);setHL('"'+w.text+'" ajouté.');clearSel();
-  })));
+  const ownedIdx=getOwnedTokenIdxs();
+  S.words.forEach((w,wi)=>{
+    if(ownedIdx.has(w.idx!==undefined?w.idx:wi)) return;
+    items.push(mkItemColor(w.text,'white','var(--mot-b)',()=>{
+      snap('add');const cid=mkNode('c',{cls:className},parentId,depth);mkNode('m',{mot:w.text,origIdx:w.idx!==undefined?w.idx:wi},cid,depth+1);
+      renderTree(cid);setHL('"'+w.text+'" ajouté.');clearSel();
+    }));
+  });
   buildCtxAt('Mot pour '+className,items,cx,cy,true);
 }
 
@@ -3023,19 +3327,22 @@ function showSubGrpMenu(cx,cy,n){
   const parentGrp=n.kind==='fg'?n.grp:(n.grp||'');
   const options=SUBGRP4GRP[parentGrp]||SUBGRP4GRP['default'];
   const allowFn=(n.kind!=='fg'); // fg under fg is asyntactic
+  // Resolve target through rel if needed
+  const _targetId=_resolveTargetForAdd(n.id);
+  const _target=S.nodes[_targetId]||n;
   const items=options.map(g=>{
     if(g==='Psub rel.'||g==='Psub compl.'||g==='Psub. Compl. de P'){
       return mkItemColor(g,'var(--psub-bg)','var(--psub-b)',()=>{
-        snap('add');const id=mkNode('psub',{pstype:g},n.id,n.depth+1);renderTree(id);setHL(g+' ajouté.');
+        snap('add');const id=mkNode('psub',{pstype:g},_targetId,_target.depth+1);renderTree(id);setHL(g+' ajouté.');
       });
     }
     const c=GRP_COLORS[g]||GRP_COLORS['default'];
     if(allowFn){
-      return mkItemColor(g,c.bg,c.b,()=>showSubGrpFnMenu(n,g,cx+12,cy+12));
+      return mkItemColor(g,c.bg,c.b,()=>showSubGrpFnMenu(_target,g,cx+12,cy+12));
     } else {
       // Under a fg: create bare group (no function layer) directly
       return mkItemColor(g,c.bg,c.b,()=>{
-        snap('add');const id=mkNode('g',{grp:g,grpCls:GRP_CLS[g]||GRP_CLS['default']},n.id);
+        snap('add');const id=mkNode('g',{grp:g,grpCls:GRP_CLS[g]||GRP_CLS['default']},_targetId);
         renderTree(id);setHL('Sous-groupe '+g+' ajouté.');
       });
     }
@@ -3279,23 +3586,28 @@ function renderWords(){
     return;
   }
   c.innerHTML='';
+  const ownedIdx=getOwnedTokenIdxs();
   S.words.forEach((w,i)=>{
+    const idx=w.idx!==undefined?w.idx:i;
+    const isOwned=ownedIdx.has(idx);
     if(w.isPunct){
       // Comma / semicolon token – selectable but not draggable
       const el=document.createElement('span');
-      el.className='pw-punct-comma'+(S.selected.has(i)?' sel':'');
+      el.className='pw-punct-comma'+(S.selected.has(i)?' sel':'')+(isOwned?' owned':'');
       el.dataset.idx=i;
       el.textContent=w.text;
-      el.title='Cliquer pour sélectionner (ponctuation)';
+      el.title=isOwned?'Utilisé dans une relation (coord./juxt.)':'Cliquer pour sélectionner (ponctuation)';
       c.appendChild(el);
       return;
     }
     const el=document.createElement('span');
     let cls='pw';
     if(S.selected.has(i)) cls+=' sel';
+    if(isOwned) cls+=' owned';
     el.className=cls; el.dataset.idx=i;
     // Word text + class badge
     el.innerHTML=`<span class="pw-text">${w.text}</span><span class="pw-cls">${w.cls&&w.cls!=='?'?w.cls:''}</span>`;
+    if(isOwned) el.title='Déjà placé dans l\'arbre';
     // No draggable=true — drag-to-tree is handled by initPbarSel mouse logic.
     c.appendChild(el);
   });
@@ -3516,18 +3828,9 @@ function initPbarSel(c){
       return;
     }
 
-    // rect mode: if mouse has left pbar and we have a selection, treat as drag of that selection
-    if(mMode==='rect' && mLeftPbar && S.selected.size>0){
-      hideRect();
-      const selWords=[...S.selected].sort((a,b)=>a-b).map(j=>S.words[j]?.text).filter(Boolean).join(' ');
-      showGhost(selWords,e.clientX,e.clientY);
-      setDropHover(getTnodeAt(e.clientX,e.clientY));
-      return;
-    }
-
     clearDropHover();
 
-    // Only draw/update rect selection while still inside pbar
+    // rect mode: always continue rect selection regardless of whether pointer left pbar
     if(mMode==='rect'){
       const vrect=rectFromPoints(mX,mY,e.clientX,e.clientY);
       drawRect(mX,mY,e.clientX,e.clientY);
@@ -3556,13 +3859,10 @@ function initPbarSel(c){
     } else if(mMode==='dragsel' && mMoved){
       _ctxBlocked=true; setTimeout(()=>{_ctxBlocked=false;},120);
       doDropAtPoint(e.clientX,e.clientY,lastHover);
-    } else if(mMode==='rect' && mMoved && mLeftPbar && S.selected.size>0){
-      _ctxBlocked=true; setTimeout(()=>{_ctxBlocked=false;},120);
-      doDropAtPoint(e.clientX,e.clientY,lastHover);
     }
 
-    // After rect selection (stayed in pbar), suppress click that follows
-    if(mMode==='rect' && mMoved && !mLeftPbar) suppressNextMouseClick=true;
+    // After rect selection, suppress click that follows
+    if(mMode==='rect' && mMoved) suppressNextMouseClick=true;
     // Plain click on empty space (no drag) → deselect immediately
     if(mMode==='rect' && !mMoved){
       if(S.selected.size>0){ S.selected=new Set(); _pbarUpdateSelDOM(); updSel(); }
@@ -3653,16 +3953,9 @@ function initPbarSel(c){
       return;
     }
 
-    if(tMode==='rect' && tLeftPbar && S.selected.size>0){
-      hideRect();
-      const selWords=[...S.selected].sort((a,b)=>a-b).map(j=>S.words[j]?.text).filter(Boolean).join(' ');
-      showGhost(selWords,t.clientX,t.clientY);
-      setDropHover(getTnodeAt(t.clientX,t.clientY));
-      return;
-    }
-
     clearDropHover();
 
+    // rect mode: always continue rect selection regardless of whether finger left pbar
     if(tMode==='rect'){
       const vrect=rectFromPoints(tX,tY,t.clientX,t.clientY);
       drawRect(tX,tY,t.clientX,t.clientY);
@@ -3689,9 +3982,6 @@ function initPbarSel(c){
     } else if(tMode==='dragsel' && tMoved){
       _ctxBlocked=true; setTimeout(()=>{_ctxBlocked=false;},120);
       doDropAtPoint(t.clientX,t.clientY,lastHover);
-    } else if(tMode==='rect' && tMoved && tLeftPbar && S.selected.size>0){
-      _ctxBlocked=true; setTimeout(()=>{_ctxBlocked=false;},120);
-      doDropAtPoint(t.clientX,t.clientY,lastHover);
     } else if(tMode==='rect' && !tMoved){
       // Tap on empty space in pbar → deselect all
       if(S.selected.size>0){ S.selected=new Set(); _pbarUpdateSelDOM(); updSel(); }
@@ -3710,6 +4000,14 @@ function initPbarSel(c){
   c.addEventListener('touchstart',onTS,{passive:true});
   c.addEventListener('touchmove',onTM,{passive:false});
   c.addEventListener('touchend',onTE);
+  // touchcancel: treat same as touchend — clean up state without triggering actions
+  function onTC(e){
+    if(tLpTimer){clearTimeout(tLpTimer);tLpTimer=null;}
+    hideGhost(); hideRect(); clearDropHover();
+    tLeftPbar=false; tDown=false; tMode=null; tIdx=null; tMoved=false;
+    updSel();
+  }
+  c.addEventListener('touchcancel',onTC);
 
   // Also handle clicks/taps on the parent .pbar padding/label area for deselection
   const pbarParent=c.closest('.pbar');
@@ -3746,17 +4044,22 @@ function showWordClassPickMenu(wordIdx,cx,cy){
   const w=S.words[wordIdx];if(!w||w.isPunct)return;
   _ctxBlocked=true;
   setTimeout(()=>{_ctxBlocked=false;},200);
-  // Fix 11: 2-column layout for word class pick menu
+  // 2-column layout: 5 items per column in exact order
   const ctx=document.getElementById('ctx');
   const title='Classe de « '+w.text+' »';
   ctxActs=[];
   let h=`<div class="ctx-title">${title}</div>`;
-  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 4px;padding:2px">';
-  ALL_CLASSES.forEach((c,i)=>{
-    const isActive=(w.cls===c);
-    ctxActs.push(()=>{ setWC(wordIdx,c);setHL('"'+w.text+'" → classe '+c+'.'); });
-    h+=`<div class="ctx-item${isActive?' ctx-item-active':''}" onclick="runCtx(${i})" style="${isActive?'background:var(--abg);color:var(--ac);font-weight:700;':''}"><div class="ctx-dot" style="background:var(--cls-bg);border-color:var(--cls-b)"></div>${c}${isActive?' ✓':''}</div>`;
-  });
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 6px;padding:2px">';
+  // Build paired rows: left[i] | right[i]
+  for(let row=0;row<5;row++){
+    const L=CLASS_MENU_LEFT[row], R=CLASS_MENU_RIGHT[row];
+    [L,R].forEach(item=>{
+      const isActive=(w.cls===item.val);
+      const actIdx=ctxActs.length;
+      ctxActs.push(()=>{ setWC(wordIdx,item.val);setHL('"'+w.text+'" → classe '+item.lbl+'.'); });
+      h+=`<div class="ctx-item${isActive?' ctx-item-active':''}" onclick="runCtx(${actIdx})" style="${isActive?'background:var(--abg);color:var(--ac);font-weight:700;':''}"><div class="ctx-dot" style="background:var(--cls-bg);border-color:var(--cls-b)"></div>${item.lbl}${isActive?' ✓':''}</div>`;
+    });
+  }
   h+='</div>';
   ctx.innerHTML=h; ctx.classList.add('open');
   ctx.style.left=cx+'px'; ctx.style.top=cy+'px';
@@ -3830,7 +4133,7 @@ function renderClasses(){
     h+=`<tr><td style="color:var(--t3)">${ri+1}</td><td style="font-weight:500">${w.text}</td>
     <td style="display:flex;align-items:center;gap:6px">
       <select class="csel" onchange="setWC(${i},this.value)">
-        ${ALL_CLASSES.map(o=>`<option value="${o}"${o===cls?' selected':''}>${o}</option>`).join('')}
+        ${[...CLASS_MENU_LEFT,...CLASS_MENU_RIGHT].map(o=>`<option value="${o.val}"${o.val===cls?' selected':''}>${o.lbl}</option>`).join('')}
         <option value="?"${cls==='?'?' selected':''}>?</option>
       </select>
       <span class="cbadge cb${bk}">${cls==='?'?'?':cls}</span>
@@ -3842,11 +4145,10 @@ function renderClasses(){
 function setWC(i,v){
   if(!S.words[i]) return;
   snap('cls');S.words[i].cls=v;
-  // Sync to tree
-  const motText=S.words[i].text;
+  // Sync to tree — use origIdx for precise matching (handles duplicate words)
   Object.values(S.nodes).forEach(n=>{
     if(n.kind==='c'){
-      const motChild=n.children.map(id=>S.nodes[id]).find(ch=>ch?.kind==='m'&&ch.mot===motText);
+      const motChild=n.children.map(id=>S.nodes[id]).find(ch=>ch?.kind==='m'&&ch.origIdx===i);
       if(motChild){n.cls=v;if(v==='Conj.'||v==='Interj.'){n.isConj=true;}else{n.isConj=false;}}
     }
   });
@@ -4085,11 +4387,18 @@ function getTreeExportMetrics(){
 function computeTreeBoundsFromMetrics(metrics){
   let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
   Object.values(S.nodes).forEach(n=>{
+    // Skip invisible rel nodes from bounding box
+    if(n.kind==='rel') return;
     const m=metrics[n.id]||{w:72,h:44};
     minX=Math.min(minX,n.x-m.w/2); maxX=Math.max(maxX,n.x+m.w/2);
     minY=Math.min(minY,n.y-m.h/2); maxY=Math.max(maxY,n.y+m.h/2);
     if(!n.parentId) return;
-    const p=S.nodes[n.parentId]; if(!p) return;
+    let p=S.nodes[n.parentId]; if(!p) return;
+    // Route through rel to host for bounds calculation
+    if(p.kind==='rel'){
+      const hostId=p.hostId||p.parentId;
+      p=S.nodes[hostId]; if(!p) return;
+    }
     const pm=metrics[p.id]||{w:72,h:44};
     const x1=p.x,y1=p.y+pm.h/2,x2=n.x,y2=n.y-m.h/2;
     minX=Math.min(minX,x1,x2); maxX=Math.max(maxX,x1,x2);
@@ -4184,7 +4493,15 @@ function drawTreeToCanvas(bgColor){
   // Draw edges
   nodes.forEach(n=>{
     if(!n.parentId) return;
-    const p=S.nodes[n.parentId]; if(!p) return;
+    // Skip rel — invisible structural node
+    if(n.kind==='rel') return;
+    let p=S.nodes[n.parentId]; if(!p) return;
+    // If parent is rel (invisible), route edge from rel's host
+    if(p.kind==='rel'){
+      const hostId=p.hostId||p.parentId;
+      const host=S.nodes[hostId];
+      if(host) p=host; else return;
+    }
     const pm=metrics[p.id]||{w:72,h:44};
     const nm=metrics[n.id]||{w:72,h:44};
     const x1=tx(p.x),y1=ty(p.y)+sd(pm.h/2),x2=tx(n.x),y2=ty(n.y)-sd(nm.h/2);
@@ -4211,6 +4528,8 @@ function drawTreeToCanvas(bgColor){
   // Draw nodes
   const SYNE='Syne,Arial,sans-serif', MONO='"JetBrains Mono",monospace';
   nodes.forEach(n=>{
+    // Skip rel — invisible structural node (no box in export)
+    if(n.kind==='rel') return;
     const m=metrics[n.id]||{w:72,h:44};
     const cols=nodeColors(n);
     const nx=tx(n.x)-sd(m.w/2), ny=ty(n.y)-sd(m.h/2);
@@ -4239,9 +4558,14 @@ function drawTreeToCanvas(bgColor){
       if(n.fn) drawTxt([{t:n.fn,sz:.68,bold:true},{t:n.pstype,sz:.8}]);
       else drawTxt([{t:'Sub.',sz:.53,a:.6},{t:n.pstype,sz:.8}]);
     } else if(n.kind==='fg'){
-      drawTxt([{t:n.fn,sz:.68,bold:true},{t:n.grp,sz:.8}]);
+      // Match screen: show coord/juxta suffix if hosting a rel
+      const _eRelChild=n.children&&n.children.map(c=>S.nodes[c]).find(ch=>ch?.kind==='rel');
+      const grpTxt=_eRelChild?(n.grp+' '+(_eRelChild.relType==='coord'?'coord.':_eRelChild.relType==='juxta'?'juxt.':'énum.')):n.grp;
+      drawTxt([{t:n.fn,sz:.68,bold:true},{t:grpTxt,sz:.8}]);
     } else if(n.kind==='g'){
-      drawTxt([{t:n.grp,sz:.8}]);
+      const _gRelChild=n.children&&n.children.map(c=>S.nodes[c]).find(ch=>ch?.kind==='rel');
+      const gTxt=_gRelChild?(n.grp+' '+(_gRelChild.relType==='coord'?'coord.':_gRelChild.relType==='juxta'?'juxt.':'énum.')):n.grp;
+      drawTxt([{t:gTxt,sz:.8}]);
     } else if(n.kind==='c'){
       drawTxt([{t:'classe',sz:.53,a:.6},{t:n.cls&&n.cls!=='?'?n.cls:'–',sz:.8}]);
     } else if(n.kind==='m'){
@@ -4384,7 +4708,7 @@ function renderBoites(){
       return `<div class="bx-intro-seg"><div class="bx-intro-label">${n.introType||'lien'}</div><div class="bx-intro-mot">${n.mot||'?'}</div></div>`;
     }
     if(n.kind === 'm'){
-      const wi = S.words.findIndex(w => w.text === n.mot && !w.isPunct);
+      const wi = (n.origIdx!==undefined&&n.origIdx!==null)?n.origIdx:S.words.findIndex(w => w.text === n.mot && !w.isPunct);
       const cls = wi >= 0 && S.words[wi] ? S.words[wi].cls : '?';
       const clsTag = _boitesShowClasses ? `<span class="bx-cls-tag" onclick="boitesSetClass(${wi},event)">${cls||'?'}</span>` : '';
       return `<div class="bx-word-wrap">${clsTag}<span class="bx-word" onclick="boitesSetClass(${wi},event)">${n.mot}</span></div>`;
@@ -4392,7 +4716,7 @@ function renderBoites(){
     if(n.kind === 'c'){
       const motChild = n.children.map(c => nodes[c]).find(ch => ch?.kind === 'm');
       if(!motChild) return '';
-      const wi = S.words.findIndex(w => w.text === motChild.mot && !w.isPunct);
+      const wi = (motChild.origIdx!==undefined&&motChild.origIdx!==null)?motChild.origIdx:S.words.findIndex(w => w.text === motChild.mot && !w.isPunct);
       const cls = wi >= 0 && S.words[wi] ? S.words[wi].cls : '?';
       const clsTag = _boitesShowClasses ? `<span class="bx-cls-tag" onclick="boitesSetClass(${wi},event)">${cls||'?'}</span>` : '';
       return `<div class="bx-word-wrap">${clsTag}<span class="bx-word" onclick="boitesSetClass(${wi},event)">${motChild.mot}</span></div>`;
@@ -5951,9 +6275,11 @@ function addAllWordsToTree(){
     curX+=bw+gap;
   });
 
-  // Internal punctuation (commas, etc.)
+  // Internal punctuation (commas, etc.) — skip those already owned by relations
   if(S.punctChars&&S.punctChars.length){
     S.punctChars.forEach(pc=>{
+      // Skip if this punct token is already owned by a relation (intro/motlink/rel-punct)
+      if(existingOrigIdx.has(pc.idx)) return;
       const prevW=S.words.filter(w=>!w.isPunct&&w.idx<pc.idx).sort((a,b)=>b.idx-a.idx)[0];
       const nextW=S.words.filter(w=>!w.isPunct&&w.idx>pc.idx).sort((a,b)=>a.idx-b.idx)[0];
       let px=curX;
@@ -5964,7 +6290,7 @@ function addAllWordsToTree(){
       else if(nextNode) px=nextNode.x-60;
       const pId='_pchar_'+pc.idx;
       if(!S.nodes[pId])
-        S.nodes[pId]={id:pId,kind:'punct',mot:pc.text,parentId:null,children:[],depth:0,x:px,y:baseY,mp:true,_manualPos:true};
+        S.nodes[pId]={id:pId,kind:'punct',mot:pc.text,origIdx:pc.idx,parentId:null,children:[],depth:0,x:px,y:baseY,mp:true,_manualPos:true};
     });
   }
 
